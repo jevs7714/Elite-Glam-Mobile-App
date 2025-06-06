@@ -50,12 +50,7 @@ export default function TabsLayout() {
               headerTitle: 'Rent Later List',
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="shopping-cart" size={size} color={color} />
-              ),
-              headerRight: () => (
-                <TouchableOpacity style={{ marginRight: 16 }}>
-                  <MaterialIcons name="shopping-cart" size={24} color="#fff" />
-                </TouchableOpacity>
-              ),
+              )
             }}
           />
           <Tabs.Screen

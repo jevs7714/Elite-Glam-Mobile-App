@@ -131,7 +131,7 @@ const Register = () => {
         passwordConfirm: '***'
       });
       
-      const { passwordConfirm, ...registrationData } = formData;
+      const registrationData = formData; // Pass the whole formData to include passwordConfirm
       const response = await authService.register(registrationData);
       console.log('Registration successful:', response);
       
