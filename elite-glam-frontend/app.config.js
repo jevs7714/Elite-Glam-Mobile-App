@@ -5,10 +5,10 @@ export default {
   slug: 'elite-glam',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
   splash: {
-    image: './assets/splash.png',
+    image: './assets/images/splash-icon.png',
     resizeMode: 'contain',
     backgroundColor: '#ffffff'
   },
@@ -21,13 +21,13 @@ export default {
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
+      foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#ffffff'
     },
     package: 'com.eliteglam.app'
   },
   web: {
-    favicon: './assets/favicon.png'
+    favicon: './assets/images/favicon.png'
   },
   extra: {
     apiUrl: 'http://192.168.0.104:3001',
