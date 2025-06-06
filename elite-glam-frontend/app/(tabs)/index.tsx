@@ -200,34 +200,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Image 
-            source={require('../../assets/images/logo.png')} 
-            style={styles.logo}
-          />
-          <Text style={styles.brandText}>
-            <Text style={styles.brandE}>E</Text>
-            <Text style={styles.brandLite}>lite</Text>
-            <Text style={styles.brandG}>G</Text>
-            <Text style={styles.brandLam}>lam</Text>
-          </Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity 
-            style={styles.iconButton}
-            onPress={() => Alert.alert(
-              'Coming Soon',
-              'Notifications feature is under development. Stay tuned!',
-              [{ text: 'OK' }]
-            )}
-          >
-            <MaterialIcons name="notifications" size={24} color="#333" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Categories */}
       <View style={styles.categorySection}>
         <View style={styles.categoryHeader}>

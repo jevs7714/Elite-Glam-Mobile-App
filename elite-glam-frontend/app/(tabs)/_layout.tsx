@@ -1,7 +1,67 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { TouchableOpacity, Platform } from 'react-native';
+import { TouchableOpacity, Platform, View, Text, Image, StyleSheet, Alert } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 30, // Adjust as needed
+    height: 30, // Adjust as needed
+    marginRight: 8,
+  },
+  brandText: {
+    fontSize: 18, // Adjust as needed
+    fontWeight: 'bold',
+    color: '#fff', // Ensure text is white
+  },
+  brandE: { color: '#fff' }, // Specific styles if needed, otherwise parent brandText covers it
+  brandLite: { color: '#fff' },
+  brandG: { color: '#fff' },
+  brandLam: { color: '#fff' },
+  iconButton: {
+    padding: 10,
+  },
+});
+
+const CustomHeaderTitle = () => {
+  return (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerLeft}>
+        <Image 
+          source={require('../../assets/images/logo.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.brandText}>
+          <Text style={styles.brandE}>E</Text>
+          <Text style={styles.brandLite}>lite</Text>
+          <Text style={styles.brandG}>G</Text>
+          <Text style={styles.brandLam}>lam</Text>
+        </Text>
+      </View>
+      <TouchableOpacity 
+        style={styles.iconButton}
+        onPress={() => Alert.alert(
+          'Coming Soon',
+          'Notifications feature is under development. Stay tuned!',
+          [{ text: 'OK' }]
+        )}
+      >
+        <MaterialIcons name="notifications" size={24} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 export default function TabsLayout() {
   return (
@@ -37,7 +97,7 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="index"
             options={{
-              title: 'Home',
+              headerTitle: () => <CustomHeaderTitle />,
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="home" size={size} color={color} />
               ),
