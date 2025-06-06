@@ -40,6 +40,7 @@ export default function HomeScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(false);
 
   const loadCachedProducts = async () => {
     try {
@@ -107,7 +108,8 @@ export default function HomeScreen() {
         }
       }
 
-      setIsLoadingMore(true);
+      if (pageNumber > 1) setIsLoadingMore(true);
+      // For initial page load or category switch, isCategoryLoading or isLoading handles it
       console.log(`Fetching products page ${pageNumber}...`);
       
       const fetchedProducts = await productsService.getProductsByPage(
@@ -133,21 +135,20 @@ export default function HomeScreen() {
         setHasMore(false);
       }
 
-      const updatedProducts = shouldRefresh ? productsWithRatings : [...products, ...productsWithRatings];
-      setProducts(updatedProducts as ProductWithRating[]);
-
-      // Save to cache if it's the first page
-      if (pageNumber === 1) {
-        await saveToCache(updatedProducts);
+      console.log('Products fetched successfully:', productsWithRatings);
+      setProducts(prevProducts => shouldRefresh ? productsWithRatings : [...prevProducts, ...productsWithRatings]);
+      setHasMore(productsWithRatings.length === ITEMS_PER_PAGE);
+      if (shouldRefresh) {
+        await saveToCache(productsWithRatings);
       }
-    } catch (error: any) {
-      console.error('Error in fetchProducts:', error);
-      setError(error.message || 'Failed to fetch products');
-      Alert.alert('Error', 'Failed to fetch products. Pull down to refresh.');
+    } catch (err: any) {
+      console.error('Failed to fetch products:', err);
+      setError(err.message || 'Failed to fetch products. Please try again.');
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      setIsLoadingMore(false);
+      setIsLoading(false); // For initial screen load
+      setIsRefreshing(false); // For pull-to-refresh
+      setIsLoadingMore(false); // For pagination
+      setIsCategoryLoading(false); // For category switching
     }
   };
 
@@ -170,10 +171,17 @@ export default function HomeScreen() {
 
   // Reset products when category changes
   useEffect(() => {
-    setProducts([]);
-    setPage(1);
-    setHasMore(true);
-    fetchProducts(1, true);
+    const loadNewCategory = async () => {
+      setIsCategoryLoading(true);
+      setProducts([]); // Clear current products immediately
+      setPage(1);
+      setHasMore(true);
+      await fetchProducts(1, true); // fetchProducts will set isCategoryLoading to false
+    };
+
+    if (!isLoading) { // Avoid running on initial load if isLoading is true
+      loadNewCategory();
+    }
   }, [selectedCategory]);
 
   // Fetch products when the screen comes into focus
@@ -190,7 +198,8 @@ export default function HomeScreen() {
 
   console.log('Filtered products:', filteredProducts); // Debug log
 
-  if (isLoading) {
+  // This isLoading is for the very initial screen load or full refresh
+  if (isLoading && products.length === 0 && page === 1) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4A148C" />
@@ -239,52 +248,55 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Products Grid */}
-      <ScrollView 
-        style={styles.productsContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            colors={['#4A148C']}
-          />
-        }
-        onScroll={({ nativeEvent }) => {
-          const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-          const paddingToBottom = 20;
-          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= 
-              contentSize.height - paddingToBottom;
-          
-          console.log('Scroll position:', {
-            scrollY: contentOffset.y,
-            contentHeight: contentSize.height,
-            viewportHeight: layoutMeasurement.height,
-            isCloseToBottom,
-            distanceToBottom: contentSize.height - (layoutMeasurement.height + contentOffset.y)
-          });
-
-          if (isCloseToBottom) {
-            loadMore();
+      {/* Products Section */}
+      {isCategoryLoading ? (
+        <View style={styles.categoryLoadingContainer}>
+          <ActivityIndicator size="large" color="#4A148C" />
+        </View>
+      ) : error && !products.length ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchProducts(1, true)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.productsContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={['#4A148C']}
+            />
           }
-        }}
-        scrollEventThrottle={16} // Changed from 400 to 16 for smoother detection
-      >
-        {error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => fetchProducts(1, true)}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.productsGrid}>
-            {products.length === 0 ? (
-              <View style={styles.noProductsContainer}>
-                <Text style={styles.noProductsText}>No products found</Text>
-              </View>
-            ) : (
-              <>
-                {products.map((product) => (
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            const paddingToBottom = 20;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= 
+                contentSize.height - paddingToBottom;
+            
+            console.log('Scroll position:', {
+              scrollY: contentOffset.y,
+              contentHeight: contentSize.height,
+              viewportHeight: layoutMeasurement.height,
+              isCloseToBottom,
+              distanceToBottom: contentSize.height - (layoutMeasurement.height + contentOffset.y)
+            });
+
+            if (isCloseToBottom) {
+              loadMore();
+            }
+          }}
+          scrollEventThrottle={16} // Changed from 400 to 16 for smoother detection
+        >
+          {products.length === 0 ? (
+            <View style={styles.noProductsContainer}>
+              <Text style={styles.noProductsText}>No products found</Text>
+            </View>
+          ) : (
+            <View style={styles.productsGrid}>
+              {filteredProducts.map((product) => (
                 <TouchableOpacity 
                   key={product.id} 
                   style={styles.productCard}
@@ -307,22 +319,27 @@ export default function HomeScreen() {
                     <Text style={styles.productPrice}>PHP {product.price.toLocaleString()}</Text>
                   </View>
                 </TouchableOpacity>
-                ))}
-                {isLoadingMore && (
-                  <View style={styles.loadingMoreContainer}>
-                    <ActivityIndicator size="small" color="#4A148C" />
-                  </View>
-                )}
-              </>
-            )}
-          </View>
-        )}
-      </ScrollView>
+              ))}
+              {isLoadingMore && (
+                <View style={styles.loadingMoreContainer}>
+                  <ActivityIndicator size="small" color="#4A148C" />
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  categoryLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50, // Give it some space
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
