@@ -10,6 +10,7 @@ export interface Product extends CreateProductDto {
   sellerName?: string;
   sellerPhoto?: string;
   imageFileId?: string;
+  available: boolean; // Added available status
 }
 
 const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -24,7 +25,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Perfect for weddings and formal events',
     rentAvailable: true,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 5 > 0
   },
   {
     name: 'Classic Business Suit',
@@ -37,7 +39,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Ideal for business meetings and interviews',
     rentAvailable: true,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 3 > 0
   },
   {
     name: 'Professional Makeup Kit',
@@ -50,7 +53,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Includes all essential products for professional makeup application',
     rentAvailable: false,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 10 > 0
   }
 ];
 
@@ -159,10 +163,16 @@ export class ProductsService implements OnModuleInit {
         console.log(`Products after search filter: ${products.length}`);
       }
 
+      // Add 'available' property based on quantity
+      const productsWithAvailability = products.map(p => ({
+        ...p,
+        available: p.quantity > 0,
+      }));
+
       // Calculate pagination
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedProducts = products.slice(startIndex, endIndex);
+      const paginatedProducts = productsWithAvailability.slice(startIndex, endIndex);
 
       console.log(`Returning ${paginatedProducts.length} products for page ${page}`);
       return paginatedProducts;
@@ -193,7 +203,13 @@ export class ProductsService implements OnModuleInit {
         }
       }
 
-    return product;
+    // Add available property
+    const productWithAvailability = {
+      ...product,
+      available: product.quantity > 0,
+    };
+
+    return productWithAvailability;
     } catch (error) {
       console.error('Error fetching product:', error);
       throw error;
