@@ -997,7 +997,7 @@ const ProductDetails = () => {
               <Text style={[
                 styles.iconButtonText,
                 isInRentLater && styles.iconButtonTextActive
-              ]}>Rent Later</Text>
+              ]}>Add to Favorites</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity 
