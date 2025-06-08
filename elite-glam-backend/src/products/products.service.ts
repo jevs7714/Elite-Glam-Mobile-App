@@ -59,6 +59,7 @@ interface FindAllOptions {
   page?: number;
   limit?: number;
   category?: string;
+  search?: string;
 }
 
 @Injectable()
@@ -130,7 +131,7 @@ export class ProductsService implements OnModuleInit {
 
   async findAll(options: FindAllOptions = {}): Promise<Product[]> {
     try {
-      const { userId, page = 1, limit = 8, category } = options;
+      const { userId, page = 1, limit = 8, category, search } = options;
       console.log('Finding products with options:', options);
 
       // Get all products from Firebase
@@ -144,6 +145,18 @@ export class ProductsService implements OnModuleInit {
         products = products.filter(product => 
           product.category.toLowerCase() === category.toLowerCase()
         );
+      }
+
+      // Apply search filter (case-insensitive)
+      console.log(`Products before search filter: ${products.length}`);
+      if (search) {
+        const searchTerm = search.toLowerCase();
+        console.log(`Applying search filter with searchTerm: '${searchTerm}'`);
+        products = products.filter(product => 
+          (product.name && product.name.toLowerCase().includes(searchTerm)) ||
+          (product.description && product.description.toLowerCase().includes(searchTerm))
+        );
+        console.log(`Products after search filter: ${products.length}`);
       }
 
       // Calculate pagination

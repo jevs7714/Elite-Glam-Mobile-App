@@ -73,6 +73,7 @@ export class ProductsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('category') category?: string,
+    @Query('search') search?: string, // Added search parameter
   ) {
     try {
       console.log('Fetching products with params:', { userId, page, limit, category });
@@ -81,6 +82,7 @@ export class ProductsController {
         page: page ? parseInt(page) : 1,
         limit: limit ? parseInt(limit) : 8,
         category,
+        search, // Pass search parameter to service
       });
       console.log(`Found ${products.length} products`);
       return products;
