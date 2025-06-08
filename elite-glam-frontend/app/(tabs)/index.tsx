@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Alert, TextInput, Platform } from 'react-native';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { productsService, Product as CategoryProduct } from '../../services/products.service'; // Renamed to avoid conflict
@@ -64,6 +64,26 @@ interface SearchCacheData {
 }
 
 export default function HomeScreen() {
+  const categoryScrollRef = useRef<ScrollView>(null);
+  const categoryButtonLayouts = useRef(new Map<string, { x: number; width: number }>());
+  const [categoryScrollViewWidth, setCategoryScrollViewWidth] = useState(0);
+  const [categoryScrollContentWidth, setCategoryScrollContentWidth] = useState(0);
+
+  const handleCategoryPress = (categoryId: typeof categories[number]['id']) => {
+    setSelectedCategory(categoryId);
+
+    const buttonInfo = categoryButtonLayouts.current.get(categoryId);
+    if (buttonInfo && categoryScrollRef.current && categoryScrollViewWidth > 0) {
+      const buttonX = buttonInfo.x;
+      const buttonWidth = buttonInfo.width;
+      let targetX = buttonX + buttonWidth / 2 - categoryScrollViewWidth / 2;
+      targetX = Math.max(0, targetX);
+      const maxScrollX = Math.max(0, categoryScrollContentWidth - categoryScrollViewWidth);
+      targetX = Math.min(targetX, maxScrollX);
+      categoryScrollRef.current.scrollTo({ x: targetX, animated: true });
+    }
+  };
+
   // State for category products
   const [selectedCategory, setSelectedCategory] = useState<typeof categories[number]['id']>('all');
   const [categoryProducts, setCategoryProducts] = useState<CategoryProductWithRating[]>([]);
@@ -473,12 +493,28 @@ export default function HomeScreen() {
         {/* Sticky Category Section - Rendered first when !isSearchActive */}
         {!isSearchActive && (
           <View style={styles.categorySection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-              {categories.map(category => (
+            <ScrollView
+              ref={categoryScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryScroll}
+              onLayout={(event) => {
+                setCategoryScrollViewWidth(event.nativeEvent.layout.width);
+              }}
+              onContentSizeChange={(width) => {
+                setCategoryScrollContentWidth(width);
+              }}
+              scrollEventThrottle={16} // Optional: for smoother layout measurements if needed
+            >
+              {categories.map((category, index) => (
                 <TouchableOpacity
                   key={category.id}
                   style={[styles.categoryButton, selectedCategory === category.id && styles.categoryButtonActive]}
-                  onPress={() => setSelectedCategory(category.id)}
+                  onPress={() => handleCategoryPress(category.id)}
+                  onLayout={(event) => {
+                    const layout = event.nativeEvent.layout;
+                    categoryButtonLayouts.current.set(category.id, { x: layout.x, width: layout.width });
+                  }}
                 >
                   <Text style={[styles.categoryButtonText, selectedCategory === category.id && styles.categoryButtonTextActive]}>
                     {category.name}
