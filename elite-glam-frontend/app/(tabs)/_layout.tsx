@@ -97,6 +97,7 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="index"
             options={{
+              title: 'Home',
               headerTitle: () => <CustomHeaderTitle />,
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="home" size={size} color={color} />
