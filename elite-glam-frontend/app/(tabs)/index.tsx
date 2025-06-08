@@ -444,6 +444,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
+        stickyHeaderIndices={!isSearchActive ? [0] : undefined}
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         onScroll={({ nativeEvent }) => {
@@ -469,6 +470,26 @@ export default function HomeScreen() {
           )
         }
       >
+        {/* Sticky Category Section - Rendered first when !isSearchActive */}
+        {!isSearchActive && (
+          <View style={styles.categorySection}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+              {categories.map(category => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryButton, selectedCategory === category.id && styles.categoryButtonActive]}
+                  onPress={() => setSelectedCategory(category.id)}
+                >
+                  <Text style={[styles.categoryButtonText, selectedCategory === category.id && styles.categoryButtonTextActive]}>
+                    {category.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Search History / Results - Rendered if search is active */}
         {isSearchActive && showSearchHistory && searchQuery.trim().length === 0 && renderSearchHistoryComponent()}
 
         {isSearchActive && searchQuery.trim().length > 0 && (
@@ -507,24 +528,8 @@ export default function HomeScreen() {
         )}
 
         {!isSearchActive && (
-          // Category Products View
+          // Category Products Grid (actual products, category bar is now sticky above)
           <>
-            <View style={styles.categorySection}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                {categories.map(category => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[styles.categoryButton, selectedCategory === category.id && styles.categoryButtonActive]}
-                    onPress={() => setSelectedCategory(category.id)}
-                  >
-                    <Text style={[styles.categoryButtonText, selectedCategory === category.id && styles.categoryButtonTextActive]}>
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
             {isCategorySwitchLoading ? (
                 <View style={styles.categoryLoadingContainer}><ActivityIndicator size="large" color="#4A148C" /></View>
             ) : categoryError ? (
