@@ -549,7 +549,7 @@ export default function HomeScreen() {
                       <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                       {product.rating && product.rating > 0 ? (
                         <View style={styles.ratingContainer}>
-                          <MaterialIcons name="star" size={16} color="#FFD700" />
+                          <MaterialIcons name="star" size={12} color="#FFD700" />
                           <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
                         </View>
                       ) : null}
@@ -581,7 +581,7 @@ export default function HomeScreen() {
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
                         <View style={styles.ratingContainer}>
-                          <MaterialIcons name="star" size={16} color="#FFD700" />
+                          <MaterialIcons name="star" size={12} color="#FFD700" />
                           <Text style={styles.ratingText}>{product.averageRating ? product.averageRating.toFixed(1) : '0.0'}</Text>
                         </View>
                         <Text style={styles.productPrice}>PHP {product.price.toLocaleString()}</Text>
@@ -728,9 +728,9 @@ const styles = StyleSheet.create({
   },
   productCard: {
     width: '48%', // Two cards per row with a little space
-    marginBottom: 16,
+    marginBottom: 12, // Reduced from 16
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 10, // Slightly smaller radius
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#f0f0f0',
@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: '100%',
-    height: 180, // Adjusted height
+    height: 120,
     resizeMode: 'cover',
   },
   outOfStockOverlay: {
@@ -761,27 +761,27 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   productInfo: {
-    padding: 12,
+    padding: 10, // Reduced from 12
   },
   productName: {
-    fontSize: 15,
+    fontSize: 14, // Reduced from 15
     fontWeight: '600',
     color: '#333',
-    marginBottom: 5,
-    minHeight: Platform.OS === 'ios' ? 36 : 40, // Approx 2 lines
+    marginBottom: 2, // Reduced from 5
+    minHeight: 20, // Adjusted for new font size
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 5,
+    marginBottom: 4, // Reduced from 5
   },
   ratingText: {
-    marginLeft: 5,
-    fontSize: 13,
+    marginLeft: 4, // Reduced from 5
+    fontSize: 12, // Reduced from 13
     color: '#555',
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 15, // Reduced from 16
     fontWeight: 'bold',
     color: '#4A148C',
   },
