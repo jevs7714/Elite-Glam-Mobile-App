@@ -31,6 +31,7 @@ import { api } from '../../services/api';
 import { bookingService } from '../../services/booking.service';
 import NetInfo from '@react-native-community/netinfo';
 import { ratingsService, Rating } from '../../services/ratings.service';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -148,6 +149,7 @@ interface CacheData {
 const ProductDetails = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -980,7 +982,7 @@ const ProductDetails = () => {
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
+        <View style={[styles.bottomActions, { paddingBottom: insets.bottom }]}>
           <View style={styles.leftActions}>
             <TouchableOpacity 
               style={[
@@ -991,7 +993,7 @@ const ProductDetails = () => {
             >
               <MaterialCommunityIcons 
                 name={isInRentLater ? "cart" : "cart-outline"} 
-                size={24} 
+                size={20} 
                 color={isInRentLater ? "#fff" : "#666"} 
               />
               <Text style={[
@@ -1202,13 +1204,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    padding: 10,
     borderTopWidth: 1,
     borderTopColor: '#eee',
     backgroundColor: '#fff',
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 50 : 40,
+    bottom: 0,
     left: 0,
     right: 0,
     zIndex: 100,
@@ -1231,17 +1232,17 @@ const styles = StyleSheet.create({
   iconButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    height: 44,
-    borderRadius: 22,
+    paddingHorizontal: 12,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#eee',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 8,
   },
   iconButtonText: {
-    marginLeft: 8,
-    fontSize: 14,
+    marginLeft: 6,
+    fontSize: 13,
     fontWeight: '600',
     color: '#666',
   },
@@ -1255,15 +1256,15 @@ const styles = StyleSheet.create({
   bookButton: {
     flex: 1,
     backgroundColor: '#6B46C1',
-    borderRadius: 22,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 44,
-    marginLeft: 16,
+    height: 40,
+    marginLeft: 8,
   },
   bookButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   sellerContainer: {
