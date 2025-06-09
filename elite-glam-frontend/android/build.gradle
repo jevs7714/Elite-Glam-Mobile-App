@@ -5,6 +5,7 @@ buildscript {
     compileSdkVersion = 35
     targetSdkVersion = 35
     minSdkVersion = 24
+    ndkVersion = "27.1.12297006"
     // You can also specify other versions here, like Kotlin version if needed
     // kotlinVersion = "1.8.0" // Example, adjust if necessary
     // We are using Expo's recommended buildToolsVersion
@@ -30,6 +31,16 @@ def reactNativeAndroidDir = new File(
 )
 
 allprojects {
+  // This block will apply to all projects, including subprojects from node_modules
+  afterEvaluate { project ->
+    if (project.hasProperty('android')) {
+      project.android {
+        compileSdkVersion rootProject.ext.compileSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+      }
+    }
+  }
+
   repositories {
     maven {
       // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
