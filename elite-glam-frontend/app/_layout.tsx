@@ -21,21 +21,29 @@ export default function RootLayout() {
     const checkAuthStatus = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken'); // Replace 'userToken' with your actual token key
+        const currentSegment = segments[0] || '';
+
         if (token) {
-          // User is authenticated, navigate to main app content
-          if (segments[0] !== '(tabs)') { // Avoid navigation loop if already in tabs
+          // User is authenticated
+          if (currentSegment === '(auth)') {
+            // If authenticated user is on an auth screen (e.g., login/register after token is set),
+            // redirect to main app content.
             navRouter.replace('/(tabs)');
           }
+          // Otherwise, allow navigation to other authenticated routes like (store) or (tabs) itself.
         } else {
-          // User is not authenticated, navigate to login
-          if (segments[0] !== '(auth)') { // Avoid navigation loop if already in auth
+          // User is not authenticated
+          if (currentSegment !== '(auth)') {
+            // If unauthenticated user is NOT on an auth screen, redirect to login.
             navRouter.replace('/(auth)/login'); // Ensure this is your login screen path
           }
+          // Otherwise, if unauthenticated user IS on an auth screen (login/register), allow them to stay.
         }
       } catch (e) {
         console.error("Failed to check auth status:", e);
         // Fallback to auth screen on error
-        if (segments[0] !== '(auth)') {
+        const currentSegmentOnError = segments[0] || '';
+        if (currentSegmentOnError !== '(auth)') {
           navRouter.replace('/(auth)/login');
         }
       } finally {
@@ -43,11 +51,8 @@ export default function RootLayout() {
       }
     };
 
-    if (fontsLoaded) { // Check auth only after fonts are attempted to load or loaded
+    if (fontsLoaded) {
       checkAuthStatus();
-    } else {
-      // If fonts are not even attempted, we might delay auth check or handle differently
-      // For now, this implies checkAuthStatus will run once fontsLoaded becomes true via the other useEffect
     }
   }, [fontsLoaded, navRouter, segments]); // Rerun if fontsLoaded changes, or router/segments instances change
 
