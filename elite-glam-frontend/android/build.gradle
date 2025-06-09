@@ -36,7 +36,6 @@ allprojects {
     if (project.hasProperty('android')) {
       project.android {
         compileSdkVersion rootProject.ext.compileSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
       }
     }
   }
