@@ -74,11 +74,11 @@ export default function TabsLayout() {
             },
             headerTintColor: '#fff',
             tabBarActiveTintColor: '#7E57C2',
-            tabBarInactiveTintColor: '#666',
+            tabBarInactiveTintColor: '#888',
             tabBarStyle: {
-              height: 60,
-              paddingBottom: Platform.OS === 'android' ? 24 : 16,
-              paddingTop: 8,
+              height: 55,
+              paddingBottom: Platform.OS === 'android' ? 5 : 12,
+              paddingTop: 5,
               backgroundColor: '#fff',
               elevation: 20,
               zIndex: 100,
@@ -90,7 +90,7 @@ export default function TabsLayout() {
               borderTopColor: '#eee',
             },
             tabBarLabelStyle: {
-              fontSize: 12,
+              fontSize: 11,
             },
           }}
         >
