@@ -1,4 +1,15 @@
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native'
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react'
 import FormField from '../../components/FormField'
 import { router, Href } from 'expo-router'
@@ -185,176 +196,255 @@ const Register = () => {
   };
   
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Sign up now</Text>
-      <Text style={styles.subtitle}>Please fill the details and create account</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.keyboardAvoidingContainer}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.innerContainer}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
 
-      {errors.general && (
-        <Text style={styles.generalError}>{errors.general}</Text>
-      )}
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Join Elite Glam today!</Text>
 
-      <View style={styles.form}>
-        <FormField
-          label="First Name"
-          value={formData.firstName}
-          onChangeText={handleChange('firstName')}
-          error={errors.firstName}
-          autoCapitalize="words"
-        />
-        
-        <FormField
-          label="Last Name"
-          value={formData.lastName}
-          onChangeText={handleChange('lastName')}
-          error={errors.lastName}
-          autoCapitalize="words"
-        />
-
-        <FormField
-          label="Username"
-          value={formData.username}
-          onChangeText={handleChange('username')}
-          error={errors.username}
-          autoCapitalize="none"
-        />
-        
-        <FormField
-          label="Email Address"
-          value={formData.email}
-          onChangeText={handleChange('email')}
-          keyboardType="email-address"
-          error={errors.email}
-          autoCapitalize="none"
-        />
-        
-        <FormField
-          label="Password"
-          value={formData.password}
-          onChangeText={handleChange('password')}
-          secureTextEntry={!showPassword}
-          showPassword={showPassword}
-          togglePassword={() => setShowPassword(!showPassword)}
-          error={errors.password}
-        />
-
-        {passwordRequirements.length > 0 && (
-          <View style={styles.requirementsContainer}>
-            <Text style={styles.requirementsTitle}>Password must have:</Text>
-            {passwordRequirements.map((req, index) => (
-              <Text key={index} style={styles.requirement}>• {req}</Text>
-            ))}
-          </View>
-        )}
-
-        <FormField
-          label="Confirm Password"
-          value={formData.passwordConfirm}
-          onChangeText={handleChange('passwordConfirm')}
-          secureTextEntry={!showPassword}
-          showPassword={showPassword}
-          togglePassword={() => setShowPassword(!showPassword)}
-          error={errors.passwordConfirm}
-        />
-
-        <TouchableOpacity 
-          style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.signUpText}>Sign Up</Text>
+          {errors.general && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={20} color="#B71C1C" />
+              <Text style={styles.errorText}>{errors.general}</Text>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/login' as Href<any>)}>
-            <Text style={styles.loginLink}>Sign in</Text>
-          </TouchableOpacity>
+          <View style={styles.form}>
+            <FormField
+              label="First Name"
+              value={formData.firstName}
+              onChangeText={handleChange('firstName')}
+              error={errors.firstName}
+              autoCapitalize="words"
+            />
+            
+            <FormField
+              label="Last Name"
+              value={formData.lastName}
+              onChangeText={handleChange('lastName')}
+              error={errors.lastName}
+              autoCapitalize="words"
+            />
+
+            <FormField
+              label="Username"
+              value={formData.username}
+              onChangeText={handleChange('username')}
+              error={errors.username}
+              autoCapitalize="none"
+            />
+            
+            <FormField
+              label="Email Address"
+              value={formData.email}
+              onChangeText={handleChange('email')}
+              keyboardType="email-address"
+              error={errors.email}
+              autoCapitalize="none"
+            />
+            
+            <FormField
+              label="Password"
+              value={formData.password}
+              onChangeText={handleChange('password')}
+              secureTextEntry={!showPassword}
+              showPassword={showPassword}
+              togglePassword={() => setShowPassword(!showPassword)}
+              error={errors.password}
+            />
+
+            {passwordRequirements.length > 0 && formData.password.length > 0 && (
+              <View style={styles.passwordRequirementsContainer}>
+                <Text style={styles.passwordRequirementsTitle}>Password must contain:</Text>
+                {passwordRequirements.map((req, index) => (
+                  <View key={index} style={styles.requirementItem}>
+                    <MaterialIcons name="close" size={16} color="#D32F2F" style={styles.requirementIcon} />
+                    <Text style={styles.requirementText}>{req}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {/* Display message when all password requirements are met */}
+            {!passwordRequirements.length && formData.password.length > 0 && !errors.password && (
+              <View style={[styles.passwordRequirementsContainer, styles.passwordRequirementsMet]}>
+                <MaterialIcons name="check-circle" size={16} color="#388E3C" style={styles.requirementIcon} />
+                <Text style={[styles.requirementText, styles.requirementTextMet]}>Password meets all requirements!</Text>
+              </View>
+            )}
+
+            <FormField
+              label="Confirm Password"
+              value={formData.passwordConfirm}
+              onChangeText={handleChange('passwordConfirm')}
+              secureTextEntry={!showPassword}
+              showPassword={showPassword}
+              togglePassword={() => setShowPassword(!showPassword)}
+              error={errors.passwordConfirm}
+            />
+
+            <TouchableOpacity 
+              style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signUpText}>Sign Up</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.loginContainer}>
+              <Text style={styles.loginText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/login' as Href<any>)}>
+                <Text style={styles.loginLink}>Sign in</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardAvoidingContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: 'white', // Match inner container background
+  },
+  scrollView: { // If you had styles for the ScrollView itself
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 20, // Add some vertical padding
+  },
+  innerContainer: { // Was 'container'
+    paddingHorizontal: 24,
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 180,
+    height: 90,
+    marginBottom: 20, // Adjusted spacing
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#6B4EFF',
-    marginTop: 40,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginTop: 8,
-    marginBottom: 30,
+    marginBottom: 25,
+    textAlign: 'center',
   },
   form: {
-    gap: 16,
+    width: '100%',
+    gap: 16, // Keep the gap from original styles if desired for FormFields
   },
-  passwordHint: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: -8,
-  },
-  signUpButton: {
-    backgroundColor: '#6B4EFF',
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
+  errorContainer: { // General error styling
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    backgroundColor: '#FFEBEE',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    width: '100%',
+  },
+  errorText: { // General error text
+    color: '#B71C1C',
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  // Styles for Password Requirements Display
+  passwordRequirementsContainer: {
+    marginTop: 5, // Adjusted from -8 to give some space after password field
+    marginBottom: 15,
+    paddingLeft: 10, // Indent requirements slightly
+    borderLeftWidth: 2,
+    borderColor: '#FFCDD2', // Light red border for unmet
+  },
+  passwordRequirementsMet: {
+    borderColor: '#C8E6C9', // Light green border for met
+  },
+  passwordRequirementsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#444',
+    marginBottom: 5,
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  requirementIcon: {
+    marginRight: 8,
+  },
+  requirementText: {
+    fontSize: 13,
+    color: '#D32F2F', // Red for unmet requirements
+  },
+  requirementTextMet: {
+    color: '#388E3C', // Green for met requirements
+  },
+  // Button and Link Styles
+  signUpButton: {
+    backgroundColor: '#7E57C2', // Brand color
+    paddingVertical: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10, // Add some top margin (original had 24, then 16)
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  signUpButtonDisabled: {
+    backgroundColor: '#B092DD', // Lighter shade for disabled state
   },
   signUpText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    alignItems: 'center',
+    marginBottom: 20, // Consistent margin
   },
   loginText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  loginLink: {
-    color: '#6B4EFF',
-    fontSize: 16,
-  },
-  signUpButtonDisabled: {
-    opacity: 0.7,
-  },
-  generalError: {
-    color: '#ff4444',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  requirementsContainer: {
-    marginTop: -8,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  requirementsTitle: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 4,
   },
-  requirement: {
-    fontSize: 12,
-    color: '#666',
-    marginLeft: 8,
+  loginLink: {
+    fontSize: 14,
+    color: '#7E57C2',
+    fontWeight: 'bold',
+    // Removed textAlign and marginBottom as it's part of a flex row now
   },
-})
+});
 
 export default Register 
