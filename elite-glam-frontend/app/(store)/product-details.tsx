@@ -999,7 +999,7 @@ const ProductDetails = () => {
               <Text style={[
                 styles.iconButtonText,
                 isInRentLater && styles.iconButtonTextActive
-              ]}>Add to Favorites</Text>
+              ]}>{isInRentLater ? "Remove from Cart" : "Add to Cart"}</Text>
             </TouchableOpacity>
           </View>
           <TouchableOpacity 
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 80 : 40,
+    paddingTop: Platform.OS === 'ios' ? 80 : 16,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: '#fff',

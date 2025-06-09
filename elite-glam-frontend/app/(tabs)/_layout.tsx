@@ -107,10 +107,10 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="rent-later"
             options={{
-              title: 'Favorites',
-              headerTitle: 'Favorites List',
+              title: 'My Cart',
+              headerTitle: 'My Cart',
               tabBarIcon: ({ color, size }) => (
-                <MaterialIcons name="star" size={size} color={color} />
+                <MaterialIcons name="shopping-cart" size={size} color={color} />
               )
             }}
           />
