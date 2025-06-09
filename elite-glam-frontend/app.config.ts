@@ -9,9 +9,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'light',
   splash: {
-    image: './assets/images/splash-icon.png',
+    image: './assets/images/logo.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff'
+    backgroundColor: '#7E57C2'
   },
   assetBundlePatterns: [
     '**/*'
@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
-      backgroundColor: '#ffffff'
+      backgroundColor: '#7E57C2'
     },
     package: 'com.eliteglam.app'
   },
@@ -38,4 +38,4 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router'
   ]
-}); 
+});
