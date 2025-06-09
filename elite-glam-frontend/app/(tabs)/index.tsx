@@ -432,7 +432,7 @@ export default function HomeScreen() {
       {/* Search Bar */}
       <View style={styles.searchSectionContainer}>
         <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
+          <MaterialIcons name="search" size={20} color="#666" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search gowns, suits, accessories..."
@@ -457,7 +457,7 @@ export default function HomeScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => { setSearchQuery(''); setIsSearchActive(false); setSearchedProducts([]); setShowSearchHistory(false); }}>
-              <MaterialIcons name="close" size={24} color="#666" />
+              <MaterialIcons name="close" size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   // Search Bar Styles
   searchSectionContainer: {
-    padding: Platform.OS === 'android' ? 12 : 16,
+    padding: Platform.OS === 'android' ? 8 : 12, // Reduced padding
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -673,16 +673,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f0f0',
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    height: 50,
+    borderRadius: 20, // Slightly reduced border radius
+    paddingHorizontal: 12, // Reduced internal padding
+    height: 44, // Reduced height
   },
   searchIcon: {
-    marginRight: 10,
+    marginRight: 8, // Slightly reduced margin
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15, // Reduced font size
     color: '#333',
     height: '100%',
   },
