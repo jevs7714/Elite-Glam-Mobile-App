@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20, // Consistent margin
+    marginTop: 20, // Consistent margin
   },
   loginText: {
     fontSize: 14,
