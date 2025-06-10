@@ -173,6 +173,11 @@ const ProductDetails = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // State for 'From the same shop' products
+  const [sameShopProducts, setSameShopProducts] = useState<Product[]>([]);
+  const [loadingSameShop, setLoadingSameShop] = useState(false);
+  const [errorSameShop, setErrorSameShop] = useState<string | null>(null);
+
   const loadFromCache = async (key: string): Promise<any | null> => {
     try {
       const cachedData = await AsyncStorage.getItem(key);
@@ -328,11 +333,11 @@ const ProductDetails = () => {
     }
   };
 
-  const fetchProductDetails = async () => {
+  const fetchProductDetails = async (): Promise<Product | null> => {
     if (!id) {
       setError('No product ID provided');
       setLoading(false);
-      return;
+      return null;
     }
 
     try {
@@ -414,18 +419,43 @@ const ProductDetails = () => {
 
       // Fetch product ratings
       await fetchProductRatings(id.toString());
+
+      return productData;
     } catch (error: any) {
       console.error('Error fetching product details:', error);
       setError(error.message || 'Failed to load product details');
       Alert.alert('Error', 'Failed to load product details');
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProductDetails();
+    const fetchDetails = async () => {
+      if (!id) return;
+      const productData = await fetchProductDetails();
+      if (productData && productData.id) {
+        fetchSameShopProducts(productData.id);
+      }
+    };
+
+    fetchDetails();
   }, [id]);
+
+  const fetchSameShopProducts = async (productId: string) => {
+    setLoadingSameShop(true);
+    setErrorSameShop(null);
+    try {
+      const response = await api.get(`/products/${productId}/from-same-shop?limit=6`);
+      setSameShopProducts(response.data);
+    } catch (err) {
+      setErrorSameShop('Failed to load products from this shop.');
+      console.error('Error fetching same shop products:', err);
+    } finally {
+      setLoadingSameShop(false);
+    }
+  };
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -663,6 +693,46 @@ const ProductDetails = () => {
             </View>
           );
         })}
+      </View>
+    );
+  };
+
+  const renderSameShopSection = () => {
+    if (loadingSameShop) {
+      return <ActivityIndicator size="large" color="#7E57C2" style={{ marginVertical: 20 }} />;
+    }
+
+    if (errorSameShop) {
+      return <Text style={styles.errorText}>{errorSameShop}</Text>;
+    }
+
+    if (sameShopProducts.length === 0) {
+      return null; // Don't render anything if there are no products
+    }
+
+    return (
+      <View style={styles.sameShopContainer}>
+        <Text style={styles.sameShopTitle}>From the same shop</Text>
+        <FlatList
+          data={sameShopProducts}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => router.push(`/(store)/product-details?id=${item.id}`)} style={styles.sameShopProductCard}>
+              <Image source={{ uri: item.image }} style={styles.sameShopProductImage} />
+              <Text style={styles.sameShopProductName} numberOfLines={2}>{item.name}</Text>
+              {(item.rating || 0) > 0 && (
+                <View style={styles.sameShopProductRatingContainer}>
+                  <FontAwesome name="star" style={styles.sameShopProductRatingStar} />
+                  <Text style={styles.sameShopProductRatingText}>{(item.rating || 0).toFixed(1)}</Text>
+                </View>
+              )}
+              <Text style={styles.sameShopProductPrice}>PHP {item.price.toFixed(2)}</Text>
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={{ paddingHorizontal: 16 }}
+        />
       </View>
     );
   };
@@ -960,6 +1030,9 @@ const ProductDetails = () => {
               </Text>
             </View>
 
+            {/* From the Same Shop */}
+            {renderSameShopSection()}
+
             {/* Ratings */}
             {renderRatingsSection()}
 
@@ -1081,7 +1154,66 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 160 : 140,
   },
   bottomSpacer: {
-    height: Platform.OS === 'ios' ? 160 : 140,
+    height: 100,
+  },
+  sameShopContainer: {
+    marginTop: 20,
+    backgroundColor: '#F9F9F9',
+    paddingVertical: 16,
+  },
+  sameShopTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    color: '#333',
+  },
+  sameShopProductCard: {
+    width: 140,
+    marginRight: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  sameShopProductImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  sameShopProductName: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#444',
+    marginBottom: 4,
+    minHeight: 32, // To ensure consistent height for 1 or 2 lines
+  },
+  sameShopProductPrice: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#7E57C2',
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  sameShopProductRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sameShopProductRatingStar: {
+    fontSize: 14,
+    color: '#FFD700',
+    marginRight: 4,
+  },
+  sameShopProductRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   imageContainer: {
     width: width,

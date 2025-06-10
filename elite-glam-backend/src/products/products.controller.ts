@@ -92,6 +92,25 @@ export class ProductsController {
     }
   }
 
+  @Get(':id/from-same-shop')
+  async findFromSameShop(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      console.log(`Fetching products from the same shop as product ${id}`);
+      const products = await this.productsService.findFromSameShop(
+        id,
+        limit ? parseInt(limit, 10) : 5,
+      );
+      console.log(`Found ${products.length} products from the same shop.`);
+      return products;
+    } catch (error) {
+      console.error('Error in findFromSameShop controller:', error);
+      throw error;
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {

@@ -285,4 +285,56 @@ export class ProductsService implements OnModuleInit {
       throw error;
     }
   }
+
+  async findFromSameShop(productId: string, limit: number = 5): Promise<Product[]> {
+    try {
+      console.log(`Finding products from the same shop as product ID: ${productId}`);
+      const originalProduct = await this.findOne(productId);
+      if (!originalProduct.userId) {
+        console.warn(`Product with ID "${productId}" does not have a seller associated.`);
+        return []; // No seller, so no other products from the same shop
+      }
+
+      const sellerId = originalProduct.userId;
+      console.log(`Original product's seller ID: ${sellerId}`);
+
+      // Fetch all products from the same seller, without pagination for this internal call
+      const allProductsFromSeller = await this.findAll({ userId: sellerId, limit: 50, page: 1 }); // Limit to 50 to be safe
+      console.log(`Found ${allProductsFromSeller.length} total products from seller ${sellerId}`);
+
+      // Filter out the original product and take the first 'limit' products
+      const otherProducts = allProductsFromSeller
+        .filter(product => product.id !== productId)
+        .slice(0, limit);
+
+      // Enhance products with average rating
+      const productsWithRatings = await Promise.all(
+        otherProducts.map(async (product) => {
+          const ratingsRef = await this.firebaseService.getCollection('ratings');
+          const ratingsQuery = ratingsRef.where('productId', '==', product.id);
+          const ratingsSnapshot = await ratingsQuery.get();
+          
+          const ratings: { rating: number }[] = ratingsSnapshot.docs.map(doc => doc.data() as { rating: number });
+
+          if (ratings.length > 0) {
+            const sum = ratings.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+            product.rating = sum / ratings.length;
+          } else {
+            product.rating = 0;
+          }
+
+          return product;
+        }),
+      );
+
+      console.log(`Returning ${productsWithRatings.length} other products from the same shop with ratings.`);
+      return productsWithRatings;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error; // Re-throw not found exception
+      }
+      console.error(`Error finding products from the same shop for product ID ${productId}:`, error);
+      throw new InternalServerErrorException('Failed to fetch products from the same shop.');
+    }
+  }
 } 
