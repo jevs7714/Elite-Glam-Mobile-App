@@ -62,7 +62,10 @@ interface FindAllOptions {
   userId?: string;
   page?: number;
   limit?: number;
-  category?: string;
+  categories?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
   search?: string;
 }
 
@@ -134,48 +137,54 @@ export class ProductsService implements OnModuleInit {
   }
 
   async findAll(options: FindAllOptions = {}): Promise<Product[]> {
+    const { 
+      userId, 
+      page = 1, 
+      limit = 8, 
+      categories, 
+      minPrice, 
+      maxPrice, 
+      minRating, 
+      search 
+    } = options;
+
     try {
-      const { userId, page = 1, limit = 8, category, search } = options;
-      console.log('Finding products with options:', options);
+      const productsRef = await this.firebaseService.getCollection(this.COLLECTION);
+      let query: any = productsRef;
 
-      // Get all products from Firebase
-      let products = await this.firebaseService.findAll<Product>(this.COLLECTION);
-
-      // Apply filters
       if (userId) {
-        products = products.filter(product => product.userId === userId);
+        query = query.where('userId', '==', userId);
       }
-      if (category) {
-        products = products.filter(product => 
-          product.category.toLowerCase() === category.toLowerCase()
-        );
+      if (categories && categories.length > 0) {
+        query = query.where('category', 'in', categories);
+      }
+      if (minPrice !== undefined) {
+        query = query.where('price', '>=', minPrice);
+      }
+      if (maxPrice !== undefined) {
+        query = query.where('price', '<=', maxPrice);
+      }
+      if (minRating !== undefined) {
+        query = query.where('rating', '>=', minRating);
       }
 
-      // Apply search filter (case-insensitive)
-      console.log(`Products before search filter: ${products.length}`);
+      const snapshot = await query.get();
+      let products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+
+      // Post-filter for search as Firestore is limited
       if (search) {
-        const searchTerm = search.toLowerCase();
-        console.log(`Applying search filter with searchTerm: '${searchTerm}'`);
-        products = products.filter(product => 
-          (product.name && product.name.toLowerCase().includes(searchTerm)) ||
-          (product.description && product.description.toLowerCase().includes(searchTerm))
+        const lowercasedSearch = search.toLowerCase();
+        products = products.filter(p => 
+          p.name.toLowerCase().includes(lowercasedSearch) ||
+          p.description.toLowerCase().includes(lowercasedSearch)
         );
-        console.log(`Products after search filter: ${products.length}`);
       }
 
-      // Add 'available' property based on quantity
-      const productsWithAvailability = products.map(p => ({
-        ...p,
-        available: p.quantity > 0,
-      }));
-
-      // Calculate pagination
+      // Manual pagination after filtering
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedProducts = productsWithAvailability.slice(startIndex, endIndex);
-
-      console.log(`Returning ${paginatedProducts.length} products for page ${page}`);
-      return paginatedProducts;
+      
+      return products.slice(startIndex, endIndex);
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;

@@ -72,17 +72,40 @@ export class ProductsController {
     @Query('userId') userId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('category') category?: string,
-    @Query('search') search?: string, // Added search parameter
+    @Query('categories') categories?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('minRating') minRating?: string,
+    @Query('search') search?: string,
   ) {
     try {
-      console.log('Fetching products with params:', { userId, page, limit, category });
+      const pageNumber = page ? parseInt(page, 10) : 1;
+      const limitNumber = limit ? parseInt(limit, 10) : 8;
+      const minPriceNumber = minPrice ? parseFloat(minPrice) : undefined;
+      const maxPriceNumber = maxPrice ? parseFloat(maxPrice) : undefined;
+      const minRatingNumber = minRating ? parseFloat(minRating) : undefined;
+      const categoryList = categories ? categories.split(',') : undefined;
+
+      console.log('Fetching products with params:', { 
+        userId, 
+        page: pageNumber, 
+        limit: limitNumber, 
+        categories: categoryList,
+        minPrice: minPriceNumber,
+        maxPrice: maxPriceNumber,
+        minRating: minRatingNumber,
+        search 
+      });
+
       const products = await this.productsService.findAll({
         userId,
-        page: page ? parseInt(page) : 1,
-        limit: limit ? parseInt(limit) : 8,
-        category,
-        search, // Pass search parameter to service
+        page: pageNumber,
+        limit: limitNumber,
+        categories: categoryList,
+        minPrice: minPriceNumber,
+        maxPrice: maxPriceNumber,
+        minRating: minRatingNumber,
+        search,
       });
       console.log(`Found ${products.length} products`);
       return products;

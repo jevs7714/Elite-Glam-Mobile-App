@@ -1,10 +1,11 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Alert, TextInput, Platform } from 'react-native';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { productsService, Product as CategoryProduct } from '../../services/products.service'; // Renamed to avoid conflict
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../services/api';
+import FilterModal, { Filters } from '../components/FilterModal';
 
 // Constants for category products
 const CATEGORY_ITEMS_PER_PAGE = 8;
@@ -20,15 +21,7 @@ const MAX_HISTORY_ITEMS = 7;
 
 const getSearchCacheKey = (query: string, page: number) => `${SEARCH_CACHE_KEY_PREFIX}${query}_${page}`;
 
-const categories = [
-  { id: 'all', name: 'All' },
-  { id: 'gown', name: 'Gown' },
-  { id: 'dress', name: 'Dress' },
-  { id: 'suit', name: 'Suit' },
-  { id: 'sportswear', name: 'Sportswear' },
-  { id: 'other', name: 'Other' }
-] as const;
-
+// Default product image
 const defaultProductImage = require('../../assets/images/dressProduct.png');
 
 // Interface for category product cache
@@ -69,23 +62,9 @@ export default function HomeScreen() {
   const [categoryScrollViewWidth, setCategoryScrollViewWidth] = useState(0);
   const [categoryScrollContentWidth, setCategoryScrollContentWidth] = useState(0);
 
-  const handleCategoryPress = (categoryId: typeof categories[number]['id']) => {
-    setSelectedCategory(categoryId);
-
-    const buttonInfo = categoryButtonLayouts.current.get(categoryId);
-    if (buttonInfo && categoryScrollRef.current && categoryScrollViewWidth > 0) {
-      const buttonX = buttonInfo.x;
-      const buttonWidth = buttonInfo.width;
-      let targetX = buttonX + buttonWidth / 2 - categoryScrollViewWidth / 2;
-      targetX = Math.max(0, targetX);
-      const maxScrollX = Math.max(0, categoryScrollContentWidth - categoryScrollViewWidth);
-      targetX = Math.min(targetX, maxScrollX);
-      categoryScrollRef.current.scrollTo({ x: targetX, animated: true });
-    }
-  };
-
   // State for category products
-  const [selectedCategory, setSelectedCategory] = useState<typeof categories[number]['id']>('all');
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Filters>({ categories: [] });
   const [categoryProducts, setCategoryProducts] = useState<CategoryProductWithRating[]>([]);
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
   const [isCategoryRefreshing, setIsCategoryRefreshing] = useState(false);
@@ -114,7 +93,7 @@ export default function HomeScreen() {
       if (cachedData) {
         const { products: cachedProducts, timestamp, category } = JSON.parse(cachedData) as CategoryCacheData;
         const isExpired = Date.now() - timestamp > CATEGORY_CACHE_EXPIRY;
-        const isSameCategory = category === selectedCategory;
+        const isSameCategory = category === 'all';
         if (!isExpired && isSameCategory) {
           setCategoryProducts(cachedProducts);
           setIsCategoryLoading(false);
@@ -133,7 +112,7 @@ export default function HomeScreen() {
       const cacheData: CategoryCacheData = {
         products: productsToCache,
         timestamp: Date.now(),
-        category: selectedCategory
+        category: 'all'
       };
       await AsyncStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(cacheData));
     } catch (error) {
@@ -155,7 +134,7 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchCategoryProducts = async (pageNumber: number, shouldRefresh: boolean = false) => {
+  const fetchCategoryProducts = async (filters: Filters, pageNumber: number, shouldRefresh: boolean = false) => {
     if (shouldRefresh) {
       setCategoryError(null);
       setCategoryPage(1);
@@ -168,13 +147,22 @@ export default function HomeScreen() {
 
     if (pageNumber === 1 && !shouldRefresh) setIsCategoryLoading(true);
     if (pageNumber > 1) setIsCategoryLoadingMore(true);
-    
+
     try {
-      const fetchedProductsRaw = await productsService.getProductsByPage(
-        pageNumber,
-        CATEGORY_ITEMS_PER_PAGE,
-        selectedCategory === 'all' ? undefined : selectedCategory
-      );
+      const params: any = {
+        page: pageNumber,
+        limit: CATEGORY_ITEMS_PER_PAGE,
+        categories: filters.categories?.join(','),
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        minRating: filters.minRating,
+      };
+
+      // Remove undefined or null params
+      Object.keys(params).forEach(key => (params[key] === undefined || params[key] === null || params[key] === '') && delete params[key]);
+
+      const response = await api.get('/products', { params });
+      const fetchedProductsRaw = response.data.products || response.data;
 
       const productsWithRatings = await Promise.all(
         fetchedProductsRaw.map(async (product: CategoryProduct) => ({
@@ -200,40 +188,35 @@ export default function HomeScreen() {
 
   const onCategoryRefresh = useCallback(() => {
     setIsCategoryRefreshing(true);
-    fetchCategoryProducts(1, true);
-  }, [selectedCategory]);
+    fetchCategoryProducts(activeFilters, 1, true);
+  }, [activeFilters]);
 
   const loadMoreCategoryProducts = () => {
     if (!isCategoryLoadingMore && categoryHasMore) {
       const nextPage = categoryPage + 1;
       setCategoryPage(nextPage);
-      fetchCategoryProducts(nextPage);
+      fetchCategoryProducts(activeFilters, nextPage);
     }
   };
 
   useEffect(() => {
     // Initial load for the default category or when category changes
-    setIsCategorySwitchLoading(true); 
-    setCategoryProducts([]); 
-    setCategoryPage(1); 
+    setIsCategorySwitchLoading(true);
+    setCategoryPage(1);
     setCategoryHasMore(true);
-    fetchCategoryProducts(1, true); 
-  }, [selectedCategory]);
+    fetchCategoryProducts(activeFilters, 1, true).finally(() => setIsCategorySwitchLoading(false));
+  }, [activeFilters]);
 
   useFocusEffect(
     useCallback(() => {
       // Re-fetch category products on focus if not actively searching
       if (!isSearchActive) {
-         fetchCategoryProducts(1, true);
+        fetchCategoryProducts(activeFilters, 1, true);
       }
       // Load search history on focus as well
       loadSearchHistory();
-    }, [isSearchActive]) // Add isSearchActive dependency
+    }, [isSearchActive, activeFilters])
   );
-
-  const displayedCategoryProducts = selectedCategory === 'all'
-    ? categoryProducts
-    : categoryProducts.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
 
   // --- Search Functionality Logic ---
   const loadSearchFromCache = async (key: string): Promise<SearchProduct[] | null> => {
@@ -492,36 +475,11 @@ export default function HomeScreen() {
       >
         {/* Sticky Category Section - Rendered first when !isSearchActive */}
         {!isSearchActive && (
-          <View style={styles.categorySection}>
-            <ScrollView
-              ref={categoryScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScroll}
-              onLayout={(event) => {
-                setCategoryScrollViewWidth(event.nativeEvent.layout.width);
-              }}
-              onContentSizeChange={(width) => {
-                setCategoryScrollContentWidth(width);
-              }}
-              scrollEventThrottle={16} // Optional: for smoother layout measurements if needed
-            >
-              {categories.map((category, index) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={[styles.categoryButton, selectedCategory === category.id && styles.categoryButtonActive]}
-                  onPress={() => handleCategoryPress(category.id)}
-                  onLayout={(event) => {
-                    const layout = event.nativeEvent.layout;
-                    categoryButtonLayouts.current.set(category.id, { x: layout.x, width: layout.width });
-                  }}
-                >
-                  <Text style={[styles.categoryButtonText, selectedCategory === category.id && styles.categoryButtonTextActive]}>
-                    {category.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          <View style={styles.filterBar}>
+            <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
+              <FontAwesome name="filter" size={20} color="#333" />
+              <Text style={styles.filterButtonText}>Filters</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -570,12 +528,12 @@ export default function HomeScreen() {
                 <View style={styles.categoryLoadingContainer}><ActivityIndicator size="large" color="#4A148C" /></View>
             ) : categoryError ? (
               <View style={styles.errorContainer}><Text style={styles.errorText}>{categoryError}</Text><TouchableOpacity style={styles.retryButton} onPress={onCategoryRefresh}><Text style={styles.retryButtonText}>Retry</Text></TouchableOpacity></View>
-            ) : displayedCategoryProducts.length === 0 && !isCategoryLoading ? (
+            ) : categoryProducts.length === 0 && !isCategoryLoading ? (
               <View style={styles.noProductsContainer}><Text style={styles.noProductsText}>No products found in this category.</Text></View>
             ) : (
               <View style={styles.productsContainer}>
                 <View style={styles.productsGrid}>
-                  {displayedCategoryProducts.map(product => (
+                  {categoryProducts.map(product => (
                     <TouchableOpacity key={`cat-${product.id}`} style={styles.productCard} onPress={() => handleCategoryProductPress(product)}>
                       <Image source={product.image ? { uri: product.image } : defaultProductImage} style={styles.productImage} />
                       <View style={styles.productInfo}>
@@ -595,6 +553,15 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+      <FilterModal 
+        visible={isFilterModalVisible}
+        onClose={() => setIsFilterModalVisible(false)}
+        onApply={(newFilters) => {
+          setActiveFilters(newFilters);
+          setIsFilterModalVisible(false);
+        }}
+        initialFilters={activeFilters}
+      />
     </View>
   );
 }
@@ -687,34 +654,26 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   // Category Styles
-  categorySection: {
-    paddingVertical: 12,
-    paddingLeft: 16, // Allow scroll to show start of list
+  filterBar: {
+    padding: 16,
     backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  categoryScroll: {
-    paddingRight: 16, // Ensure last item in scroll is not cut off
-  },
-  categoryButton: {
-    paddingHorizontal: 18,
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 10,
-    backgroundColor: '#f9f9f9',
-    borderWidth: 1,
-    borderColor: '#eee',
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
   },
-  categoryButtonActive: {
-    backgroundColor: '#4A148C',
-    borderColor: '#4A148C',
-  },
-  categoryButtonText: {
-    color: '#555',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  categoryButtonTextActive: {
-    color: '#fff',
+  filterButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   // Products Grid Styles (shared by category and search)
   productsContainer: {
