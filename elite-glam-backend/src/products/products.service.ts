@@ -11,6 +11,7 @@ export interface Product extends CreateProductDto {
   sellerPhoto?: string;
   imageFileId?: string;
   available: boolean; // Added available status
+  averageRating?: number; // To hold the calculated average rating
 }
 
 const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -137,21 +138,22 @@ export class ProductsService implements OnModuleInit {
   }
 
   async findAll(options: FindAllOptions = {}): Promise<Product[]> {
-    const { 
-      userId, 
-      page = 1, 
-      limit = 8, 
-      categories, 
-      minPrice, 
-      maxPrice, 
-      minRating, 
-      search 
+    const {
+      userId,
+      page = 1,
+      limit = 8,
+      categories,
+      minPrice,
+      maxPrice,
+      minRating,
+      search,
     } = options;
 
     try {
       const productsRef = await this.firebaseService.getCollection(this.COLLECTION);
       let query: any = productsRef;
 
+      // Apply Firestore-compatible filters first
       if (userId) {
         query = query.where('userId', '==', userId);
       }
@@ -164,30 +166,52 @@ export class ProductsService implements OnModuleInit {
       if (maxPrice !== undefined) {
         query = query.where('price', '<=', maxPrice);
       }
-      if (minRating !== undefined) {
-        query = query.where('rating', '>=', minRating);
-      }
 
       const snapshot = await query.get();
-      let products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+      const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 
-      // Post-filter for search as Firestore is limited
+      // Fetch ratings and calculate average for each product
+      const productsWithRatings = await Promise.all(
+        products.map(async (product) => {
+          const ratingsRef = await this.firebaseService.getCollection('ratings');
+          const ratingsSnapshot = await ratingsRef.where('productId', '==', product.id).get();
+          
+          if (ratingsSnapshot.empty) {
+            return { ...product, averageRating: 0 };
+          }
+
+          const ratings = ratingsSnapshot.docs.map(doc => doc.data().rating);
+          const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+          
+          return { ...product, averageRating };
+        })
+      );
+
+      let filteredProducts = productsWithRatings;
+
+      // Apply minRating filter in memory
+      if (minRating !== undefined) {
+        filteredProducts = filteredProducts.filter(p => p.averageRating >= minRating);
+      }
+
+      // Post-filter for search
       if (search) {
         const lowercasedSearch = search.toLowerCase();
-        products = products.filter(p => 
+        filteredProducts = filteredProducts.filter(p =>
           p.name.toLowerCase().includes(lowercasedSearch) ||
           p.description.toLowerCase().includes(lowercasedSearch)
         );
       }
 
-      // Manual pagination after filtering
+      // Manual pagination after all filtering
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      
-      return products.slice(startIndex, endIndex);
+
+      return filteredProducts.slice(startIndex, endIndex);
+
     } catch (error) {
       console.error('Error fetching products:', error);
-      throw error;
+      throw new InternalServerErrorException('Failed to fetch products.');
     }
   }
 
