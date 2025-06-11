@@ -21,6 +21,7 @@ import {
   Keyboard,
   BackHandler
 } from 'react-native';
+import YouMightAlsoLike from '../components/YouMightAlsoLike';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
@@ -1049,6 +1050,11 @@ const ProductDetails = () => {
             {/* Reviews */}
             {renderReviews()}
 
+            {/* You might also like */}
+            {product && product.category && (
+              <YouMightAlsoLike productId={product.id} category={product.category} />
+            )}
+
             {/* Bottom Spacer */}
             <View style={styles.bottomSpacer} />
           </View>
@@ -1741,4 +1747,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProductDetails; 
+export default ProductDetails;
