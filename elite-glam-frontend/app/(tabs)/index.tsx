@@ -42,12 +42,12 @@ interface SearchProduct {
   name: string;
   description: string;
   price: number;
-  rating?: number; // This could be an average rating or individual ratings count
   image: string;
   category: string;
   size: string[];
   color: string[];
   available: boolean;
+  averageRating?: number;
 }
 
 // Interface for search result cache
@@ -313,11 +313,16 @@ export default function HomeScreen() {
         params: { search: currentQuery, page: pageNumber, limit: SEARCH_ITEMS_PER_PAGE }
       });
       
-      const newProducts: SearchProduct[] = response.data.products || response.data; // Adjust based on actual API response structure
+      const productsWithRatings = await Promise.all(
+        (response.data.products || response.data).map(async (product: SearchProduct) => ({
+          ...product,
+          averageRating: await fetchProductRatings(product.id.toString())
+        }))
+      );
 
-      setSearchedProducts(prev => isNewSearch ? newProducts : [...prev, ...newProducts]);
-      setSearchHasMore(newProducts.length === SEARCH_ITEMS_PER_PAGE);
-      await saveSearchToCache(cacheKey, newProducts); // Cache new page results
+      setSearchedProducts(prev => isNewSearch ? productsWithRatings : [...prev, ...productsWithRatings]);
+      setSearchHasMore(productsWithRatings.length === SEARCH_ITEMS_PER_PAGE);
+      await saveSearchToCache(cacheKey, productsWithRatings); // Cache new page results
 
     } catch (err: any) {
       setSearchError(err.message || 'Failed to fetch search results.');
@@ -444,6 +449,9 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
+          <FontAwesome name="sliders" size={20} color="#333" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -475,11 +483,7 @@ export default function HomeScreen() {
       >
         {/* Sticky Category Section - Rendered first when !isSearchActive */}
         {!isSearchActive && (
-          <View style={styles.filterBar}>
-            <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
-              <FontAwesome name="filter" size={20} color="#333" />
-              <Text style={styles.filterButtonText}>Filters</Text>
-            </TouchableOpacity>
+          <View>
           </View>
         )}
 
@@ -500,15 +504,12 @@ export default function HomeScreen() {
                 {searchedProducts.map((product) => (
                   <TouchableOpacity key={`search-${product.id}`} style={styles.productCard} onPress={() => handleSearchedProductPress(product)}>
                     <Image source={product.image ? { uri: product.image } : defaultProductImage} style={styles.productImage} />
-                     {!product.available && (
-                        <View style={styles.outOfStockOverlay}><Text style={styles.outOfStockText}>Out of Stock</Text></View>
-                      )}
                     <View style={styles.productInfo}>
                       <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-                      {product.rating && product.rating > 0 ? (
+                      {product.averageRating && product.averageRating > 0 ? (
                         <View style={styles.ratingContainer}>
                           <MaterialIcons name="star" size={12} color="#FFD700" />
-                          <Text style={styles.ratingText}>{product.rating.toFixed(1)}</Text>
+                          <Text style={styles.ratingText}>{product.averageRating.toFixed(1)}</Text>
                         </View>
                       ) : null}
                       <Text style={styles.productPrice}>PHP {product.price.toLocaleString()}</Text>
@@ -631,43 +632,40 @@ const styles = StyleSheet.create({
   },
   // Search Bar Styles
   searchSectionContainer: {
-    padding: Platform.OS === 'android' ? 8 : 12, // Reduced padding
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Platform.OS === 'android' ? 8 : 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f0f0',
-    borderRadius: 20, // Slightly reduced border radius
-    paddingHorizontal: 12, // Reduced internal padding
-    height: 44, // Reduced height
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    height: 44,
+    marginRight: 8,
+  },
+  filterButton: {
+    padding: 12,
   },
   searchIcon: {
-    marginRight: 8, // Slightly reduced margin
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15, // Reduced font size
+    fontSize: 15,
     color: '#333',
     height: '100%',
   },
   // Category Styles
   filterBar: {
-    padding: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
   },
   filterButtonText: {
     marginLeft: 10,
