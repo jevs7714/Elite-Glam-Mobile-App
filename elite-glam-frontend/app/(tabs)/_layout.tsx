@@ -1,18 +1,29 @@
-import { Tabs } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
-import { TouchableOpacity, Platform, View, Text, Image, StyleSheet, Alert } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Tabs } from "expo-router";
+import { MaterialIcons } from "@expo/vector-icons";
+import {
+  TouchableOpacity,
+  Platform,
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import React, { useState, useEffect } from "react";
+import { notificationsService } from "../../services/notifications.service";
+import { router } from "expo-router";
 
 const styles = StyleSheet.create({
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   logo: {
     width: 30, // Adjust as needed
@@ -21,24 +32,62 @@ const styles = StyleSheet.create({
   },
   brandText: {
     fontSize: 18, // Adjust as needed
-    fontWeight: 'bold',
-    color: '#fff', // Ensure text is white
+    fontWeight: "bold",
+    color: "#fff", // Ensure text is white
   },
-  brandE: { color: '#fff' }, // Specific styles if needed, otherwise parent brandText covers it
-  brandLite: { color: '#fff' },
-  brandG: { color: '#fff' },
-  brandLam: { color: '#fff' },
+  brandE: { color: "#fff" }, // Specific styles if needed, otherwise parent brandText covers it
+  brandLite: { color: "#fff" },
+  brandG: { color: "#fff" },
+  brandLam: { color: "#fff" },
   iconButton: {
     padding: 10,
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    backgroundColor: "#FF4444",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#7E57C2",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    textAlign: "center",
   },
 });
 
 const CustomHeaderTitle = () => {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    loadUnreadCount();
+    // Set up interval to check for new notifications every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadUnreadCount = async () => {
+    try {
+      const count = await notificationsService.getUnreadCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error("Error loading unread count:", error);
+    }
+  };
+
   return (
     <View style={styles.headerContainer}>
       <View style={styles.headerLeft}>
-        <Image 
-          source={require('../../assets/images/logo.png')} 
+        <Image
+          source={require("../../assets/images/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -49,15 +98,18 @@ const CustomHeaderTitle = () => {
           <Text style={styles.brandLam}>lam</Text>
         </Text>
       </View>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.iconButton}
-        onPress={() => Alert.alert(
-          'Coming Soon',
-          'Notifications feature is under development. Stay tuned!',
-          [{ text: 'OK' }]
-        )}
+        onPress={() => router.push("/(tabs)/notifications")}
       >
         <MaterialIcons name="notifications" size={24} color="#fff" />
+        {unreadCount > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>
+              {unreadCount > 99 ? "99+" : unreadCount.toString()}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -66,28 +118,31 @@ const CustomHeaderTitle = () => {
 export default function TabsLayout() {
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: "#fff" }}
+        edges={["bottom", "left", "right"]}
+      >
         <Tabs
           screenOptions={{
             headerStyle: {
-              backgroundColor: '#7E57C2',
+              backgroundColor: "#7E57C2",
             },
-            headerTintColor: '#fff',
-            tabBarActiveTintColor: '#7E57C2',
-            tabBarInactiveTintColor: '#888',
+            headerTintColor: "#fff",
+            tabBarActiveTintColor: "#7E57C2",
+            tabBarInactiveTintColor: "#888",
             tabBarStyle: {
               height: 55,
-              paddingBottom: Platform.OS === 'android' ? 5 : 12,
+              paddingBottom: Platform.OS === "android" ? 5 : 12,
               paddingTop: 5,
-              backgroundColor: '#fff',
+              backgroundColor: "#fff",
               elevation: 20,
               zIndex: 100,
-              shadowColor: '#000',
+              shadowColor: "#000",
               shadowOffset: { width: 0, height: -4 },
               shadowOpacity: 0.15,
               shadowRadius: 12,
               borderTopWidth: 0.5,
-              borderTopColor: '#eee',
+              borderTopColor: "#eee",
             },
             tabBarLabelStyle: {
               fontSize: 11,
@@ -97,7 +152,7 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="index"
             options={{
-              title: 'Home',
+              title: "Home",
               headerTitle: () => <CustomHeaderTitle />,
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="home" size={size} color={color} />
@@ -107,44 +162,54 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="rent-later"
             options={{
-              title: 'My Cart',
-              headerTitle: 'My Cart',
+              title: "My Cart",
+              headerTitle: "My Cart",
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="shopping-cart" size={size} color={color} />
-              )
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="notifications"
+            options={{
+              title: "Notifications",
+              headerTitle: "Notifications",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons name="notifications" size={size} color={color} />
+              ),
             }}
           />
           <Tabs.Screen
             name="profile"
             options={{
-              title: 'Profile',
+              title: "Profile",
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="person" size={size} color={color} />
               ),
             }}
           />
-           <Tabs.Screen
-        name="edit-profile"
-        options={{
-          title: 'Edit Profile',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="edit" size={size} color={color} />
-          ),
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="choose-photo"
-        options={{
-          title: 'Choose Photo',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="photo-camera" size={size} color={color} />
-          ),
-          href: null,
-        }}
-      />
+          <Tabs.Screen
+            name="edit-profile"
+            options={{
+              title: "Edit Profile",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons name="edit" size={size} color={color} />
+              ),
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="choose-photo"
+            options={{
+              title: "Choose Photo",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons name="photo-camera" size={size} color={color} />
+              ),
+              href: null,
+            }}
+          />
         </Tabs>
       </SafeAreaView>
     </SafeAreaProvider>
   );
-} 
+}

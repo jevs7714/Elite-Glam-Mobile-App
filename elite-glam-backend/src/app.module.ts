@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { RatingsModule } from './ratings/ratings.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RatingsModule } from './ratings/ratings.module';
     ProductsModule,
     BookingsModule,
     RatingsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

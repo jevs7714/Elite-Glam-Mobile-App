@@ -13,7 +13,7 @@ interface FirebaseError extends Error {
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private firebaseApp: admin.app.App;
-  private db: admin.firestore.Firestore;
+  public db: admin.firestore.Firestore; // Made public for batch operations
   private auth: admin.auth.Auth;
   private storage: admin.storage.Storage;
 
@@ -466,4 +466,4 @@ export class FirebaseService implements OnModuleInit {
       throw new Error('Failed to update user profile');
     }
   }
-} 
+}
