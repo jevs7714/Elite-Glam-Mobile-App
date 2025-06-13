@@ -1,28 +1,44 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Alert, TextInput, Platform } from 'react-native';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { productsService, Product as CategoryProduct } from '../../services/products.service'; // Renamed to avoid conflict
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../../services/api';
-import FilterModal, { Filters } from '../components/FilterModal';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  TextInput,
+  Platform,
+} from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { MaterialIcons, FontAwesome } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
+import {
+  productsService,
+  Product as CategoryProduct,
+} from "../../services/products.service"; // Renamed to avoid conflict
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "../../services/api";
+import FilterModal, { Filters } from "../components/FilterModal";
 
 // Constants for category products
 const CATEGORY_ITEMS_PER_PAGE = 8;
 const CATEGORY_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
-const CATEGORY_CACHE_KEY = 'home_products_cache';
+const CATEGORY_CACHE_KEY = "home_products_cache";
 
 // Constants for search functionality
 const SEARCH_ITEMS_PER_PAGE = 8;
 const SEARCH_CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
-const SEARCH_CACHE_KEY_PREFIX = 'search_cache_';
-const SEARCH_HISTORY_KEY = 'search_history';
+const SEARCH_CACHE_KEY_PREFIX = "search_cache_";
+const SEARCH_HISTORY_KEY = "search_history";
 const MAX_HISTORY_ITEMS = 7;
 
-const getSearchCacheKey = (query: string, page: number) => `${SEARCH_CACHE_KEY_PREFIX}${query}_${page}`;
+const getSearchCacheKey = (query: string, page: number) =>
+  `${SEARCH_CACHE_KEY_PREFIX}${query}_${page}`;
 
 // Default product image
-const defaultProductImage = require('../../assets/images/dressProduct.png');
+const defaultProductImage = require("../../assets/images/dressProduct.png");
 
 // Interface for category product cache
 interface CategoryCacheData {
@@ -58,14 +74,21 @@ interface SearchCacheData {
 
 export default function HomeScreen() {
   const categoryScrollRef = useRef<ScrollView>(null);
-  const categoryButtonLayouts = useRef(new Map<string, { x: number; width: number }>());
+  const categoryButtonLayouts = useRef(
+    new Map<string, { x: number; width: number }>()
+  );
   const [categoryScrollViewWidth, setCategoryScrollViewWidth] = useState(0);
-  const [categoryScrollContentWidth, setCategoryScrollContentWidth] = useState(0);
+  const [categoryScrollContentWidth, setCategoryScrollContentWidth] =
+    useState(0);
 
   // State for category products
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<Filters>({ categories: [] });
-  const [categoryProducts, setCategoryProducts] = useState<CategoryProductWithRating[]>([]);
+  const [activeFilters, setActiveFilters] = useState<Filters>({
+    categories: [],
+  });
+  const [categoryProducts, setCategoryProducts] = useState<
+    CategoryProductWithRating[]
+  >([]);
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
   const [isCategoryRefreshing, setIsCategoryRefreshing] = useState(false);
   const [categoryError, setCategoryError] = useState<string | null>(null);
@@ -75,7 +98,7 @@ export default function HomeScreen() {
   const [isCategorySwitchLoading, setIsCategorySwitchLoading] = useState(false);
 
   // State for search functionality
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchedProducts, setSearchedProducts] = useState<SearchProduct[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -91,9 +114,13 @@ export default function HomeScreen() {
     try {
       const cachedData = await AsyncStorage.getItem(CATEGORY_CACHE_KEY);
       if (cachedData) {
-        const { products: cachedProducts, timestamp, category } = JSON.parse(cachedData) as CategoryCacheData;
+        const {
+          products: cachedProducts,
+          timestamp,
+          category,
+        } = JSON.parse(cachedData) as CategoryCacheData;
         const isExpired = Date.now() - timestamp > CATEGORY_CACHE_EXPIRY;
-        const isSameCategory = category === 'all';
+        const isSameCategory = category === "all";
         if (!isExpired && isSameCategory) {
           setCategoryProducts(cachedProducts);
           setIsCategoryLoading(false);
@@ -102,21 +129,23 @@ export default function HomeScreen() {
       }
       return false;
     } catch (error) {
-      console.error('Error loading cached category products:', error);
+      console.error("Error loading cached category products:", error);
       return false;
     }
   };
 
-  const saveCategoryProductsToCache = async (productsToCache: CategoryProductWithRating[]) => {
+  const saveCategoryProductsToCache = async (
+    productsToCache: CategoryProductWithRating[]
+  ) => {
     try {
       const cacheData: CategoryCacheData = {
         products: productsToCache,
         timestamp: Date.now(),
-        category: 'all'
+        category: "all",
       };
       await AsyncStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(cacheData));
     } catch (error) {
-      console.error('Error saving category products to cache:', error);
+      console.error("Error saving category products to cache:", error);
     }
   };
 
@@ -124,7 +153,10 @@ export default function HomeScreen() {
     try {
       const response = await api.get(`/ratings/product/${productId}`);
       if (response.data && response.data.length > 0) {
-        const sum = response.data.reduce((acc: number, curr: any) => acc + curr.rating, 0);
+        const sum = response.data.reduce(
+          (acc: number, curr: any) => acc + curr.rating,
+          0
+        );
         return sum / response.data.length;
       }
       return 0;
@@ -134,7 +166,11 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchCategoryProducts = async (filters: Filters, pageNumber: number, shouldRefresh: boolean = false) => {
+  const fetchCategoryProducts = async (
+    filters: Filters,
+    pageNumber: number,
+    shouldRefresh: boolean = false
+  ) => {
     if (shouldRefresh) {
       setCategoryError(null);
       setCategoryPage(1);
@@ -152,32 +188,52 @@ export default function HomeScreen() {
       const params: any = {
         page: pageNumber,
         limit: CATEGORY_ITEMS_PER_PAGE,
-        categories: filters.categories?.join(','),
+        categories: filters.categories?.join(","),
         minPrice: filters.minPrice,
         maxPrice: filters.maxPrice,
         minRating: filters.minRating,
       };
 
       // Remove undefined or null params
-      Object.keys(params).forEach(key => (params[key] === undefined || params[key] === null || params[key] === '') && delete params[key]);
+      Object.keys(params).forEach(
+        (key) =>
+          (params[key] === undefined ||
+            params[key] === null ||
+            params[key] === "") &&
+          delete params[key]
+      );
 
-      const response = await api.get('/products', { params });
+      const response = await api.get("/products", { params });
       const fetchedProductsRaw = response.data.products || response.data;
 
       const productsWithRatings = await Promise.all(
         fetchedProductsRaw.map(async (product: CategoryProduct) => ({
           ...product,
-          averageRating: await fetchProductRatings(product.id)
+          averageRating: await fetchProductRatings(product.id),
         }))
       );
 
-      setCategoryProducts(prev => shouldRefresh || isCategorySwitchLoading ? productsWithRatings : [...prev, ...productsWithRatings]);
-      setCategoryHasMore(productsWithRatings.length === CATEGORY_ITEMS_PER_PAGE);
+      // Sort products by rating (highest first), then by name for consistency
+      const sortedProducts = productsWithRatings.sort((a, b) => {
+        if (b.averageRating !== a.averageRating) {
+          return b.averageRating - a.averageRating; // Higher rating first
+        }
+        return a.name.localeCompare(b.name); // Alphabetical as secondary sort
+      });
+
+      setCategoryProducts((prev) =>
+        shouldRefresh || isCategorySwitchLoading
+          ? sortedProducts
+          : [...prev, ...sortedProducts]
+      );
+      setCategoryHasMore(
+        productsWithRatings.length === CATEGORY_ITEMS_PER_PAGE
+      );
       if (shouldRefresh || isCategorySwitchLoading) {
         await saveCategoryProductsToCache(productsWithRatings);
       }
     } catch (err: any) {
-      setCategoryError(err.message || 'Failed to fetch products.');
+      setCategoryError(err.message || "Failed to fetch products.");
     } finally {
       setIsCategoryLoading(false);
       setIsCategoryRefreshing(false);
@@ -204,7 +260,9 @@ export default function HomeScreen() {
     setIsCategorySwitchLoading(true);
     setCategoryPage(1);
     setCategoryHasMore(true);
-    fetchCategoryProducts(activeFilters, 1, true).finally(() => setIsCategorySwitchLoading(false));
+    fetchCategoryProducts(activeFilters, 1, true).finally(() =>
+      setIsCategorySwitchLoading(false)
+    );
   }, [activeFilters]);
 
   useFocusEffect(
@@ -219,7 +277,9 @@ export default function HomeScreen() {
   );
 
   // --- Search Functionality Logic ---
-  const loadSearchFromCache = async (key: string): Promise<SearchProduct[] | null> => {
+  const loadSearchFromCache = async (
+    key: string
+  ): Promise<SearchProduct[] | null> => {
     try {
       const cachedResult = await AsyncStorage.getItem(key);
       if (cachedResult) {
@@ -231,7 +291,7 @@ export default function HomeScreen() {
       }
       return null;
     } catch (error) {
-      console.error('Error loading search from cache:', error);
+      console.error("Error loading search from cache:", error);
       return null;
     }
   };
@@ -241,7 +301,7 @@ export default function HomeScreen() {
       const item: SearchCacheData = { data, timestamp: Date.now() };
       await AsyncStorage.setItem(key, JSON.stringify(item));
     } catch (error) {
-      console.error('Error saving search to cache:', error);
+      console.error("Error saving search to cache:", error);
     }
   };
 
@@ -252,21 +312,27 @@ export default function HomeScreen() {
         setSearchHistory(JSON.parse(history));
       }
     } catch (error) {
-      console.error('Error loading search history:', error);
+      console.error("Error loading search history:", error);
     }
   };
 
   const saveSearchHistory = async (query: string) => {
     if (!query.trim()) return;
     try {
-      let updatedHistory = [query, ...searchHistory.filter(item => item !== query)];
+      let updatedHistory = [
+        query,
+        ...searchHistory.filter((item) => item !== query),
+      ];
       if (updatedHistory.length > MAX_HISTORY_ITEMS) {
         updatedHistory = updatedHistory.slice(0, MAX_HISTORY_ITEMS);
       }
       setSearchHistory(updatedHistory);
-      await AsyncStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await AsyncStorage.setItem(
+        SEARCH_HISTORY_KEY,
+        JSON.stringify(updatedHistory)
+      );
     } catch (error) {
-      console.error('Error saving search history:', error);
+      console.error("Error saving search history:", error);
     }
   };
 
@@ -275,11 +341,15 @@ export default function HomeScreen() {
       setSearchHistory([]);
       await AsyncStorage.removeItem(SEARCH_HISTORY_KEY);
     } catch (error) {
-      console.error('Error clearing search history:', error);
+      console.error("Error clearing search history:", error);
     }
   };
 
-  const fetchSearchedProducts = async (currentQuery: string, pageNumber: number, isNewSearch: boolean = false) => {
+  const fetchSearchedProducts = async (
+    currentQuery: string,
+    pageNumber: number,
+    isNewSearch: boolean = false
+  ) => {
     if (!currentQuery.trim()) {
       setSearchedProducts([]);
       setIsSearchActive(false);
@@ -299,7 +369,8 @@ export default function HomeScreen() {
     }
 
     try {
-      if (isNewSearch) { // Check cache only for the first page of a new search
+      if (isNewSearch) {
+        // Check cache only for the first page of a new search
         const cachedProducts = await loadSearchFromCache(cacheKey);
         if (cachedProducts) {
           setSearchedProducts(cachedProducts);
@@ -309,23 +380,30 @@ export default function HomeScreen() {
         }
       }
 
-      const response = await api.get('/products', { 
-        params: { search: currentQuery, page: pageNumber, limit: SEARCH_ITEMS_PER_PAGE }
+      const response = await api.get("/products", {
+        params: {
+          search: currentQuery,
+          page: pageNumber,
+          limit: SEARCH_ITEMS_PER_PAGE,
+        },
       });
-      
+
       const productsWithRatings = await Promise.all(
-        (response.data.products || response.data).map(async (product: SearchProduct) => ({
-          ...product,
-          averageRating: await fetchProductRatings(product.id.toString())
-        }))
+        (response.data.products || response.data).map(
+          async (product: SearchProduct) => ({
+            ...product,
+            averageRating: await fetchProductRatings(product.id.toString()),
+          })
+        )
       );
 
-      setSearchedProducts(prev => isNewSearch ? productsWithRatings : [...prev, ...productsWithRatings]);
+      setSearchedProducts((prev) =>
+        isNewSearch ? productsWithRatings : [...prev, ...productsWithRatings]
+      );
       setSearchHasMore(productsWithRatings.length === SEARCH_ITEMS_PER_PAGE);
       await saveSearchToCache(cacheKey, productsWithRatings); // Cache new page results
-
     } catch (err: any) {
-      setSearchError(err.message || 'Failed to fetch search results.');
+      setSearchError(err.message || "Failed to fetch search results.");
     } finally {
       setIsSearchLoading(false);
       setIsSearchLoadingMore(false);
@@ -357,7 +435,7 @@ export default function HomeScreen() {
         setIsSearchActive(false); // Option 2: Go back to categories, history on focus
         setSearchedProducts([]);
       }
-    }, 500), 
+    }, 500),
     [isSearchActive] // Recreate if isSearchActive changes, to ensure correct closure
   );
 
@@ -365,7 +443,7 @@ export default function HomeScreen() {
     if (searchQuery.trim().length === 0 && !isSearchActive) {
       // If search query is cleared and search is not active, ensure category products are shown
       // This might be redundant if useFocusEffect handles it, but good for explicit clear
-      // fetchCategoryProducts(1, true); 
+      // fetchCategoryProducts(1, true);
     } else {
       debouncedSearch(searchQuery);
     }
@@ -380,11 +458,17 @@ export default function HomeScreen() {
   };
 
   const handleSearchedProductPress = (product: SearchProduct) => {
-    router.push({ pathname: '/(store)/product-details', params: { id: product.id.toString() } });
+    router.push({
+      pathname: "/(store)/product-details",
+      params: { id: product.id.toString() },
+    });
   };
-  
+
   const handleCategoryProductPress = (product: CategoryProductWithRating) => {
-    router.push({ pathname: '/(store)/product-details', params: { id: product.id.toString() } });
+    router.push({
+      pathname: "/(store)/product-details",
+      params: { id: product.id.toString() },
+    });
   };
 
   const renderSearchHistoryComponent = () => (
@@ -401,8 +485,17 @@ export default function HomeScreen() {
         <Text style={styles.historyEmptyText}>No recent searches.</Text>
       ) : (
         searchHistory.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.historyItem} onPress={() => handleSearchSubmit(item)}>
-            <MaterialIcons name="history" size={20} color="#666" style={styles.historyIcon} />
+          <TouchableOpacity
+            key={index}
+            style={styles.historyItem}
+            onPress={() => handleSearchSubmit(item)}
+          >
+            <MaterialIcons
+              name="history"
+              size={20}
+              color="#666"
+              style={styles.historyIcon}
+            />
             <Text style={styles.historyItemText}>{item}</Text>
           </TouchableOpacity>
         ))
@@ -412,7 +505,12 @@ export default function HomeScreen() {
 
   // --- Render Logic ---
   if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive) {
-    return <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#4A148C" /><Text style={styles.loadingText}>Loading Products...</Text></View>;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A148C" />
+        <Text style={styles.loadingText}>Loading Products...</Text>
+      </View>
+    );
   }
 
   return (
@@ -420,7 +518,12 @@ export default function HomeScreen() {
       {/* Search Bar */}
       <View style={styles.searchSectionContainer}>
         <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color="#666" style={styles.searchIcon} />
+          <MaterialIcons
+            name="search"
+            size={20}
+            color="#666"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search gowns, suits, accessories..."
@@ -444,12 +547,22 @@ export default function HomeScreen() {
             // onBlur={() => setShowSearchHistory(false)} // Can hide history on blur
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); setIsSearchActive(false); setSearchedProducts([]); setShowSearchHistory(false); }}>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery("");
+                setIsSearchActive(false);
+                setSearchedProducts([]);
+                setShowSearchHistory(false);
+              }}
+            >
               <MaterialIcons name="close" size={20} color="#666" />
             </TouchableOpacity>
           )}
         </View>
-        <TouchableOpacity style={styles.filterButton} onPress={() => setIsFilterModalVisible(true)}>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setIsFilterModalVisible(true)}
+        >
           <FontAwesome name="sliders" size={20} color="#333" />
         </TouchableOpacity>
       </View>
@@ -461,7 +574,9 @@ export default function HomeScreen() {
         onScroll={({ nativeEvent }) => {
           const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
           const paddingToBottom = 20;
-          const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
+          const isCloseToBottom =
+            layoutMeasurement.height + contentOffset.y >=
+            contentSize.height - paddingToBottom;
           if (isCloseToBottom) {
             if (isSearchActive && searchQuery.trim()) {
               loadMoreSearchResults();
@@ -476,49 +591,85 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={isCategoryRefreshing}
               onRefresh={onCategoryRefresh}
-              colors={['#4A148C']}
+              colors={["#4A148C"]}
             />
           )
         }
       >
         {/* Sticky Category Section - Rendered first when !isSearchActive */}
-        {!isSearchActive && (
-          <View>
-          </View>
-        )}
+        {!isSearchActive && <View></View>}
 
         {/* Search History / Results - Rendered if search is active */}
-        {isSearchActive && showSearchHistory && searchQuery.trim().length === 0 && renderSearchHistoryComponent()}
+        {isSearchActive &&
+          showSearchHistory &&
+          searchQuery.trim().length === 0 &&
+          renderSearchHistoryComponent()}
 
         {isSearchActive && searchQuery.trim().length > 0 && (
           // Search Results View
           <View style={styles.productsContainer}>
             {isSearchLoading && searchedProducts.length === 0 ? (
-              <View style={styles.loadingContainer}><ActivityIndicator size="large" color="#6B3FA0" /><Text style={styles.loadingText}>Searching...</Text></View>
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6B3FA0" />
+                <Text style={styles.loadingText}>Searching...</Text>
+              </View>
             ) : searchError ? (
-              <View style={styles.errorContainer}><Text style={styles.errorText}>{String(searchError)}</Text></View>
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{String(searchError)}</Text>
+              </View>
             ) : searchedProducts.length === 0 && !isSearchLoading ? (
-              <View style={styles.emptyStateContainer}><MaterialIcons name="search-off" size={64} color="#ccc" /><Text style={styles.emptyStateText}>No products found for "{String(searchQuery)}".</Text></View>
+              <View style={styles.emptyStateContainer}>
+                <MaterialIcons name="search-off" size={64} color="#ccc" />
+                <Text style={styles.emptyStateText}>
+                  No products found for "{String(searchQuery)}".
+                </Text>
+              </View>
             ) : (
               <View style={styles.productsGrid}>
                 {searchedProducts.map((product) => (
-                  <TouchableOpacity key={`search-${product.id}`} style={styles.productCard} onPress={() => handleSearchedProductPress(product)}>
-                    <Image source={product.image ? { uri: product.image } : defaultProductImage} style={styles.productImage} />
+                  <TouchableOpacity
+                    key={`search-${product.id}`}
+                    style={styles.productCard}
+                    onPress={() => handleSearchedProductPress(product)}
+                  >
+                    <Image
+                      source={
+                        product.image
+                          ? { uri: product.image }
+                          : defaultProductImage
+                      }
+                      style={styles.productImage}
+                    />
                     <View style={styles.productInfo}>
-                      <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                      <Text style={styles.productName} numberOfLines={2}>
+                        {product.name}
+                      </Text>
                       {product.averageRating && product.averageRating > 0 ? (
                         <View style={styles.ratingContainer}>
-                          <MaterialIcons name="star" size={12} color="#FFD700" />
-                          <Text style={styles.ratingText}>{product.averageRating.toFixed(1)}</Text>
+                          <MaterialIcons
+                            name="star"
+                            size={12}
+                            color="#FFD700"
+                          />
+                          <Text style={styles.ratingText}>
+                            {product.averageRating.toFixed(1)}
+                          </Text>
                         </View>
                       ) : null}
-                      <Text style={styles.productPrice}>PHP {product.price.toLocaleString()}</Text>
+                      <Text style={styles.productPrice}>
+                        PHP {product.price.toLocaleString()}
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))}
               </View>
             )}
-            {isSearchLoadingMore && <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color="#6B3FA0" /><Text style={styles.loadingMoreText}>Loading more...</Text></View>}
+            {isSearchLoadingMore && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#6B3FA0" />
+                <Text style={styles.loadingMoreText}>Loading more...</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -526,35 +677,77 @@ export default function HomeScreen() {
           // Category Products Grid (actual products, category bar is now sticky above)
           <>
             {isCategorySwitchLoading ? (
-                <View style={styles.categoryLoadingContainer}><ActivityIndicator size="large" color="#4A148C" /></View>
+              <View style={styles.categoryLoadingContainer}>
+                <ActivityIndicator size="large" color="#4A148C" />
+              </View>
             ) : categoryError ? (
-              <View style={styles.errorContainer}><Text style={styles.errorText}>{categoryError}</Text><TouchableOpacity style={styles.retryButton} onPress={onCategoryRefresh}><Text style={styles.retryButtonText}>Retry</Text></TouchableOpacity></View>
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{categoryError}</Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={onCategoryRefresh}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
             ) : categoryProducts.length === 0 && !isCategoryLoading ? (
-              <View style={styles.noProductsContainer}><Text style={styles.noProductsText}>No products found in this category.</Text></View>
+              <View style={styles.noProductsContainer}>
+                <Text style={styles.noProductsText}>
+                  No products found in this category.
+                </Text>
+              </View>
             ) : (
               <View style={styles.productsContainer}>
                 <View style={styles.productsGrid}>
-                  {categoryProducts.map(product => (
-                    <TouchableOpacity key={`cat-${product.id}`} style={styles.productCard} onPress={() => handleCategoryProductPress(product)}>
-                      <Image source={product.image ? { uri: product.image } : defaultProductImage} style={styles.productImage} />
+                  {categoryProducts.map((product) => (
+                    <TouchableOpacity
+                      key={`cat-${product.id}`}
+                      style={styles.productCard}
+                      onPress={() => handleCategoryProductPress(product)}
+                    >
+                      <Image
+                        source={
+                          product.image
+                            ? { uri: product.image }
+                            : defaultProductImage
+                        }
+                        style={styles.productImage}
+                      />
                       <View style={styles.productInfo}>
-                        <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+                        <Text style={styles.productName} numberOfLines={2}>
+                          {product.name}
+                        </Text>
                         <View style={styles.ratingContainer}>
-                          <MaterialIcons name="star" size={12} color="#FFD700" />
-                          <Text style={styles.ratingText}>{product.averageRating ? product.averageRating.toFixed(1) : '0.0'}</Text>
+                          <MaterialIcons
+                            name="star"
+                            size={12}
+                            color="#FFD700"
+                          />
+                          <Text style={styles.ratingText}>
+                            {product.averageRating
+                              ? product.averageRating.toFixed(1)
+                              : "0.0"}
+                          </Text>
                         </View>
-                        <Text style={styles.productPrice}>PHP {product.price.toLocaleString()}</Text>
+                        <Text style={styles.productPrice}>
+                          PHP {product.price.toLocaleString()}
+                        </Text>
                       </View>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
             )}
-            {isCategoryLoadingMore && <View style={styles.loadingMoreContainer}><ActivityIndicator size="small" color="#4A148C" /><Text style={styles.loadingMoreText}>Loading more...</Text></View>}
+            {isCategoryLoadingMore && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#4A148C" />
+                <Text style={styles.loadingMoreText}>Loading more...</Text>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
-      <FilterModal 
+      <FilterModal
         visible={isFilterModalVisible}
         onClose={() => setIsFilterModalVisible(false)}
         onApply={(newFilters) => {
@@ -585,65 +778,65 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   scrollContentContainer: {
     paddingBottom: 20, // Space for last items and loading indicator
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 50,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   categoryLoadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 50,
   },
   errorContainer: {
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
   },
   errorText: {
     fontSize: 16,
-    color: '#ff4444',
+    color: "#ff4444",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   retryButton: {
-    backgroundColor: '#4A148C',
+    backgroundColor: "#4A148C",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   // Search Bar Styles
   searchSectionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Platform.OS === 'android' ? 8 : 12,
-    backgroundColor: '#fff',
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Platform.OS === "android" ? 8 : 12,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   searchBar: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
     borderRadius: 20,
     paddingHorizontal: 12,
     height: 44,
@@ -658,63 +851,66 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#333',
-    height: '100%',
+    color: "#333",
+    height: "100%",
   },
   // Category Styles
   filterBar: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   filterButtonText: {
     marginLeft: 10,
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   // Products Grid Styles (shared by category and search)
   productsContainer: {
     paddingHorizontal: 16,
-    paddingTop: 16, 
+    paddingTop: 16,
   },
   productsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   productCard: {
-    width: '48%', // Two cards per row with a little space
+    width: "48%", // Two cards per row with a little space
     marginBottom: 12, // Reduced from 16
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10, // Slightly smaller radius
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderColor: "#f0f0f0",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
   productImage: {
-    width: '100%',
+    width: "100%",
     height: 120,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   outOfStockOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   outOfStockText: {
-    color: '#fff', 
-    fontWeight: 'bold', 
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 14,
     padding: 5,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: "rgba(0,0,0,0.6)",
     borderRadius: 4,
   },
   productInfo: {
@@ -722,95 +918,95 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 14, // Reduced from 15
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 2, // Reduced from 5
     minHeight: 20, // Adjusted for new font size
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4, // Reduced from 5
   },
   ratingText: {
     marginLeft: 4, // Reduced from 5
     fontSize: 12, // Reduced from 13
-    color: '#555',
+    color: "#555",
   },
   productPrice: {
     fontSize: 15, // Reduced from 16
-    fontWeight: 'bold',
-    color: '#4A148C',
+    fontWeight: "bold",
+    color: "#4A148C",
   },
   noProductsContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 50,
   },
   noProductsText: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   loadingMoreContainer: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   loadingMoreText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   // Search History Styles
   historyContainer: {
     padding: 16,
     borderTopWidth: 1, // If search bar is separate
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
   },
   historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   historyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   clearHistoryButton: {
     fontSize: 14,
-    color: '#4A148C',
+    color: "#4A148C",
   },
   historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
+    borderBottomColor: "#f5f5f5",
   },
   historyIcon: {
     marginRight: 12,
   },
   historyItemText: {
     fontSize: 16,
-    color: '#444',
+    color: "#444",
   },
   historyEmptyText: {
     fontSize: 15,
-    color: '#777',
-    textAlign: 'center',
+    color: "#777",
+    textAlign: "center",
     marginTop: 20,
   },
   emptyStateContainer: {
     flex: 1, // Ensure it can take space if needed
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
     minHeight: 200, // Give it some minimum height
   },
   emptyStateText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
 });
