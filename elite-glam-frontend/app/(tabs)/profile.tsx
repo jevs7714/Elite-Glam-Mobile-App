@@ -19,6 +19,7 @@ interface UserData {
   uid: string;
   username: string;
   email: string;
+  role?: "customer" | "shop_owner"; // Added role
   profile?: {
     photoURL?: string;
     bio?: string;
@@ -61,6 +62,7 @@ export default function ProfileScreen() {
           uid: response.data.uid || storedUserData?.uid,
           username: response.data.username || "",
           email: response.data.email || "",
+          role: response.data.role || storedUserData?.role || "customer", // Added role, default to customer
           profile: {
             // Preserve existing profile data if available
             photoURL:
@@ -208,21 +210,26 @@ export default function ProfileScreen() {
             <Text style={styles.menuText}>Notifications</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/(store)/dashboard")}
-          >
-            <MaterialIcons name="store" size={24} color="#333" />
-            <Text style={styles.menuText}>My Store</Text>
-          </TouchableOpacity>
+          {/* Conditional Rendering for My Store / Rent Status */}
+          {userData?.role === "shop_owner" && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push("/(store)/dashboard")}
+            >
+              <MaterialIcons name="store" size={24} color="#333" />
+              <Text style={styles.menuText}>My Store</Text>
+            </TouchableOpacity>
+          )}
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/(store)/booking-status")}
-          >
-            <MaterialIcons name="event-note" size={24} color="#333" />
-            <Text style={styles.menuText}>Rent Status</Text>
-          </TouchableOpacity>
+          {userData?.role === "customer" && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push("/(store)/booking-status")}
+            >
+              <MaterialIcons name="event-note" size={24} color="#333" />
+              <Text style={styles.menuText}>Rent Status</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.menuItem}

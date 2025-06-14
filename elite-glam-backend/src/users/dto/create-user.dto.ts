@@ -17,4 +17,7 @@ export class CreateUserDto {
   @IsString()
   @Match('password', { message: 'Passwords do not match' })
   passwordConfirm: string;
-} 
+
+  @IsString()
+  role: 'customer' | 'shop_owner' | 'admin';
+}

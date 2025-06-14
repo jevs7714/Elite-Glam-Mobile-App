@@ -191,6 +191,7 @@ export class FirebaseService implements OnModuleInit {
         uid: authUser.uid,
         username: userData.username,
         email: userData.email,
+        role: userData.role, // Add role here
         createdAt: new Date(),
         updatedAt: new Date(),
       };
