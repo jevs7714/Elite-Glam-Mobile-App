@@ -1,9 +1,9 @@
 // Define types for our database collections
 export interface UserRecord {
-  uid: string;          // Firebase Auth UID
+  uid: string; // Firebase Auth UID
   username: string;
   email: string;
-  role?: 'admin' | 'customer' | 'shop_owner';  // User role
+  role?: 'admin' | 'customer' | 'shop_owner'; // User role
   createdAt: Date;
   updatedAt: Date;
   profile?: {

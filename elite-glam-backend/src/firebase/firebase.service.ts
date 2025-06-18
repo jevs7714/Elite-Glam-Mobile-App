@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, UnauthorizedException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { UserRecord, CreateUserInput, AuthResponse } from './database.types';
@@ -24,12 +29,18 @@ export class FirebaseService implements OnModuleInit {
   onModuleInit() {
     try {
       console.log('Running onModuleInit...'); // Debug log
-      
+
       const privateKey = this.configService.get<string>('FIREBASE_PRIVATE_KEY');
       const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
-      const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
-      const storageBucket = this.configService.get<string>('FIREBASE_STORAGE_BUCKET');
-      const databaseURL = this.configService.get<string>('FIREBASE_DATABASE_URL');
+      const clientEmail = this.configService.get<string>(
+        'FIREBASE_CLIENT_EMAIL',
+      );
+      const storageBucket = this.configService.get<string>(
+        'FIREBASE_STORAGE_BUCKET',
+      );
+      const databaseURL = this.configService.get<string>(
+        'FIREBASE_DATABASE_URL',
+      );
 
       // Enhanced debugging
       console.log('Firebase Configuration Check:');
@@ -68,7 +79,7 @@ export class FirebaseService implements OnModuleInit {
       this.db = this.firebaseApp.firestore();
       this.auth = this.firebaseApp.auth();
       this.storage = this.firebaseApp.storage();
-      
+
       console.log('Firebase initialization complete'); // Debug log
     } catch (error) {
       console.error('Error initializing Firebase:', error);
@@ -81,11 +92,16 @@ export class FirebaseService implements OnModuleInit {
   }
 
   // Database operations
-  async getCollection(collection: string): Promise<admin.firestore.CollectionReference> {
+  async getCollection(
+    collection: string,
+  ): Promise<admin.firestore.CollectionReference> {
     return this.db.collection(collection);
   }
 
-  async getDocument(collection: string, id: string): Promise<admin.firestore.DocumentReference> {
+  async getDocument(
+    collection: string,
+    id: string,
+  ): Promise<admin.firestore.DocumentReference> {
     return this.db.collection(collection).doc(id);
   }
 
@@ -98,7 +114,11 @@ export class FirebaseService implements OnModuleInit {
     });
   }
 
-  async updateDocument(collection: string, id: string, data: any): Promise<void> {
+  async updateDocument(
+    collection: string,
+    id: string,
+    data: any,
+  ): Promise<void> {
     const docRef = this.db.collection(collection).doc(id);
     await docRef.update({
       ...data,
@@ -122,7 +142,7 @@ export class FirebaseService implements OnModuleInit {
       // Verify password using Firebase Auth REST API
       const apiKey = this.configService.get<string>('FIREBASE_API_KEY');
       const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`;
-      
+
       const response = await fetch(signInUrl, {
         method: 'POST',
         headers: {
@@ -136,14 +156,17 @@ export class FirebaseService implements OnModuleInit {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok || data.error) {
         console.error('Password verification failed:', data.error);
         throw new UnauthorizedException('Invalid credentials');
       }
 
       // Get user data from Firestore
-      const userDoc = await this.db.collection('users').doc(userRecord.uid).get();
+      const userDoc = await this.db
+        .collection('users')
+        .doc(userRecord.uid)
+        .get();
       if (!userDoc.exists) {
         console.error('User document not found in Firestore');
         throw new UnauthorizedException('Invalid credentials');
@@ -161,7 +184,7 @@ export class FirebaseService implements OnModuleInit {
 
       return {
         ...userData,
-        customToken
+        customToken,
       };
     } catch (error) {
       console.error('Authentication failed:', error);
@@ -203,7 +226,7 @@ export class FirebaseService implements OnModuleInit {
       return userRecord;
     } catch (error) {
       console.error('Error creating user:', error);
-      
+
       const firebaseError = error as FirebaseError;
       if (firebaseError.code === 'auth/email-already-exists') {
         throw new BadRequestException('Email already exists');
@@ -214,15 +237,17 @@ export class FirebaseService implements OnModuleInit {
       if (firebaseError.code === 'auth/weak-password') {
         throw new BadRequestException('Password is too weak');
       }
-      
-      throw new BadRequestException(firebaseError.message || 'Failed to create user');
+
+      throw new BadRequestException(
+        firebaseError.message || 'Failed to create user',
+      );
     }
   }
 
   async getUserByUid(uid: string): Promise<UserRecord | null> {
     try {
       const userDoc = await this.db.collection('users').doc(uid).get();
-      
+
       if (!userDoc.exists) {
         return null;
       }
@@ -230,15 +255,20 @@ export class FirebaseService implements OnModuleInit {
       return userDoc.data() as UserRecord;
     } catch (error) {
       const firebaseError = error as FirebaseError;
-      throw new Error(`Error getting user: ${firebaseError.message || 'Unknown error'}`);
+      throw new Error(
+        `Error getting user: ${firebaseError.message || 'Unknown error'}`,
+      );
     }
   }
 
   async getUserByEmail(email: string): Promise<UserRecord | null> {
     try {
       const userRecord = await this.auth.getUserByEmail(email);
-      const userDoc = await this.db.collection('users').doc(userRecord.uid).get();
-      
+      const userDoc = await this.db
+        .collection('users')
+        .doc(userRecord.uid)
+        .get();
+
       if (!userDoc.exists) {
         return null;
       }
@@ -253,22 +283,31 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
-  async updateUser(uid: string, updateData: Partial<UserRecord>): Promise<UserRecord> {
+  async updateUser(
+    uid: string,
+    updateData: Partial<UserRecord>,
+  ): Promise<UserRecord> {
     const userRef = this.db.collection('users').doc(uid);
-    
+
     await userRef.update({
       ...updateData,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     const updatedDoc = await userRef.get();
     return updatedDoc.data() as UserRecord;
   }
 
-  async create<T extends Record<string, any>>(collection: string, data: T): Promise<string> {
+  async create<T extends Record<string, any>>(
+    collection: string,
+    data: T,
+  ): Promise<string> {
     try {
-      console.log(`Attempting to create document in collection '${collection}' with data:`, data);
-      
+      console.log(
+        `Attempting to create document in collection '${collection}' with data:`,
+        data,
+      );
+
       if (!this.db) {
         throw new Error('Firestore is not initialized');
       }
@@ -278,20 +317,33 @@ export class FirebaseService implements OnModuleInit {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
-      
-      console.log(`Document created successfully in collection '${collection}' with ID:`, docRef.id);
+
+      console.log(
+        `Document created successfully in collection '${collection}' with ID:`,
+        docRef.id,
+      );
       return docRef.id;
     } catch (error) {
-      console.error(`Error creating document in collection '${collection}':`, error);
+      console.error(
+        `Error creating document in collection '${collection}':`,
+        error,
+      );
       throw error;
     }
   }
 
-  async update<T extends Record<string, any>>(collection: string, id: string, data: Partial<T>): Promise<void> {
-    await this.db.collection(collection).doc(id).update({
-      ...data,
-      updatedAt: Timestamp.now(),
-    });
+  async update<T extends Record<string, any>>(
+    collection: string,
+    id: string,
+    data: Partial<T>,
+  ): Promise<void> {
+    await this.db
+      .collection(collection)
+      .doc(id)
+      .update({
+        ...data,
+        updatedAt: Timestamp.now(),
+      });
   }
 
   async delete(collection: string, id: string): Promise<void> {
@@ -306,37 +358,39 @@ export class FirebaseService implements OnModuleInit {
 
   async findAll<T>(collection: string): Promise<T[]> {
     const snapshot = await this.db.collection(collection).get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as T);
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as T);
   }
 
   // Add method to verify Firebase tokens
   async verifyToken(token: string): Promise<admin.auth.DecodedIdToken> {
     try {
       console.log('Starting token verification...');
-      
+
       try {
         // First try to verify as an ID token
         console.log('Attempting to verify as ID token...');
         const decodedToken = await this.auth.verifyIdToken(token);
         console.log('Successfully verified as ID token:', {
           uid: decodedToken.uid,
-          email: decodedToken.email
+          email: decodedToken.email,
         });
         return decodedToken;
       } catch (idTokenError) {
         console.log('ID token verification failed:', idTokenError.message);
-        
+
         try {
           // Try to get the user from the token claims
           console.log('Attempting to decode token claims...');
-          const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+          const decoded = JSON.parse(
+            Buffer.from(token.split('.')[1], 'base64').toString(),
+          );
           console.log('Decoded token claims:', decoded);
 
           if (decoded.uid) {
             // Verify the user exists
             const user = await this.auth.getUser(decoded.uid);
             console.log('Found user from token claims:', user.uid);
-            
+
             return {
               uid: user.uid,
               email: user.email,
@@ -344,7 +398,7 @@ export class FirebaseService implements OnModuleInit {
               exp: decoded.exp,
               aud: this.configService.get('FIREBASE_PROJECT_ID'),
               iss: `https://securetoken.google.com/${this.configService.get('FIREBASE_PROJECT_ID')}`,
-              sub: user.uid
+              sub: user.uid,
             } as admin.auth.DecodedIdToken;
           }
           throw new Error('Invalid token claims');
@@ -368,7 +422,10 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
-  async uploadImage(file: Express.Multer.File, userId: string): Promise<string> {
+  async uploadImage(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<string> {
     try {
       const bucket = this.storage.bucket();
       const fileName = `products/${userId}/${Date.now()}_${file.originalname}`;
@@ -389,7 +446,7 @@ export class FirebaseService implements OnModuleInit {
         stream.on('finish', async () => {
           // Make the file publicly accessible
           await fileUpload.makePublic();
-          
+
           // Get the public URL
           const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
           resolve(publicUrl);
@@ -403,25 +460,28 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
-  async updateUserProfile(userId: string, profileData: { 
-    photoURL?: string; 
-    firstName?: string; 
-    lastName?: string; 
-    bio?: string;
-    address?: {
-      street?: string;
-      city?: string;
-      state?: string;
-      zipCode?: string;
-      country?: string;
-      phoneNumber?: string;
-    };
-  }): Promise<void> {
+  async updateUserProfile(
+    userId: string,
+    profileData: {
+      photoURL?: string;
+      firstName?: string;
+      lastName?: string;
+      bio?: string;
+      address?: {
+        street?: string;
+        city?: string;
+        state?: string;
+        zipCode?: string;
+        country?: string;
+        phoneNumber?: string;
+      };
+    },
+  ): Promise<void> {
     try {
       // Get the current user document
       const userRef = this.db.collection('users').doc(userId);
       const userDoc = await userRef.get();
-      
+
       if (!userDoc.exists) {
         throw new Error('User not found');
       }

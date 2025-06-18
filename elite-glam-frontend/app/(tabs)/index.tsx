@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { MaterialIcons, FontAwesome } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   productsService,
   Product as CategoryProduct,
@@ -21,6 +21,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../../services/api";
 import FilterModal, { Filters } from "../components/FilterModal";
+import ShopOwnerHome from "../components/ShopOwnerHome";
 
 // Constants for category products
 const CATEGORY_ITEMS_PER_PAGE = 8;
@@ -73,6 +74,10 @@ interface SearchCacheData {
 }
 
 export default function HomeScreen() {
+  const { loginSuccess } = useLocalSearchParams<{ loginSuccess?: string }>();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+
   const categoryScrollRef = useRef<ScrollView>(null);
   const categoryButtonLayouts = useRef(
     new Map<string, { x: number; width: number }>()
@@ -265,16 +270,61 @@ export default function HomeScreen() {
     );
   }, [activeFilters]);
 
+  // Effect to check the user role whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
-      // Re-fetch category products on focus if not actively searching
-      if (!isSearchActive) {
-        fetchCategoryProducts(activeFilters, 1, true);
-      }
-      // Load search history on focus as well
-      loadSearchHistory();
-    }, [isSearchActive, activeFilters])
+      const checkUserRole = async () => {
+        setIsRoleLoading(true);
+        try {
+          const userDataString = await AsyncStorage.getItem("userData");
+          const userData = userDataString ? JSON.parse(userDataString) : null;
+          setUserRole(userData?.role || null);
+        } catch (error) {
+          console.error("Failed to fetch user role:", error);
+          setUserRole(null); // Default to customer on error
+        } finally {
+          setIsRoleLoading(false);
+        }
+      };
+      checkUserRole();
+    }, [])
   );
+
+  // Effect to fetch data based on the user's role
+  useEffect(() => {
+    // Wait until the role check is complete
+    if (isRoleLoading) {
+      return;
+    }
+
+    // If the user is a customer, fetch products
+    if (userRole !== "shop_owner" && !isSearchActive) {
+      fetchCategoryProducts(activeFilters, 1, true);
+    }
+
+    // Load search history for all users
+    loadSearchHistory();
+  }, [userRole, isRoleLoading, isSearchActive, activeFilters]);
+
+  // Effect to specifically handle the refresh after login
+  useEffect(() => {
+    if (loginSuccess === "true") {
+      const checkUserRole = async () => {
+        setIsRoleLoading(true);
+        try {
+          const userDataString = await AsyncStorage.getItem("userData");
+          const userData = userDataString ? JSON.parse(userDataString) : null;
+          setUserRole(userData?.role || null);
+        } catch (error) {
+          console.error("Failed to fetch user role on login refresh:", error);
+          setUserRole(null);
+        } finally {
+          setIsRoleLoading(false);
+        }
+      };
+      checkUserRole();
+    }
+  }, [loginSuccess]);
 
   // --- Search Functionality Logic ---
   const loadSearchFromCache = async (
@@ -511,6 +561,18 @@ export default function HomeScreen() {
         <Text style={styles.loadingText}>Loading Products...</Text>
       </View>
     );
+  }
+
+  if (isRoleLoading || userRole === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+      </View>
+    );
+  }
+
+  if (userRole === "shop_owner") {
+    return <ShopOwnerHome />;
   }
 
   return (

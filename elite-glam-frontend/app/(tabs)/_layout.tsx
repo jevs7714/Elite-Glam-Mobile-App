@@ -14,7 +14,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
 import { router } from "expo-router";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -66,10 +66,10 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  }
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
 });
 
 interface UserData {
@@ -134,12 +134,12 @@ export default function TabsLayout() {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const storedData = await AsyncStorage.getItem('userData');
+        const storedData = await AsyncStorage.getItem("userData");
         if (storedData) {
           setUserData(JSON.parse(storedData));
         }
       } catch (error) {
-        console.error('Error loading user data from storage:', error);
+        console.error("Error loading user data from storage:", error);
       } finally {
         setIsLoading(false);
       }
@@ -151,14 +151,17 @@ export default function TabsLayout() {
   if (isLoading) {
     return (
       <SafeAreaProvider>
-        <SafeAreaView style={styles.loadingContainer} edges={["bottom", "left", "right"]}>
+        <SafeAreaView
+          style={styles.loadingContainer}
+          edges={["bottom", "left", "right"]}
+        >
           <ActivityIndicator size="large" color="#7E57C2" />
         </SafeAreaView>
       </SafeAreaProvider>
     );
   }
 
-  const isShopOwner = userData?.role === 'shop_owner';
+  const isShopOwner = userData?.role === "shop_owner";
 
   return (
     <SafeAreaProvider>
@@ -194,7 +197,7 @@ export default function TabsLayout() {
           }}
         >
           <Tabs.Screen
-            name={isShopOwner ? "(store)/dashboard" : "index"}
+            name="index"
             options={{
               title: "Home",
               headerTitle: () => <CustomHeaderTitle />,
@@ -210,7 +213,11 @@ export default function TabsLayout() {
                 title: "My Cart",
                 headerTitle: "My Cart",
                 tabBarIcon: ({ color, size }) => (
-                  <MaterialIcons name="shopping-cart" size={size} color={color} />
+                  <MaterialIcons
+                    name="shopping-cart"
+                    size={size}
+                    color={color}
+                  />
                 ),
               }}
             />
