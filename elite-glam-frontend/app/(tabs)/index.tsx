@@ -302,13 +302,18 @@ export default function HomeScreen() {
         await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
       } else {
         // Fallback to storage if API response is incomplete
-        console.log("API response incomplete, falling back to storage for role.");
+        console.log(
+          "API response incomplete, falling back to storage for role."
+        );
         const userDataString = await AsyncStorage.getItem("userData");
         const userData = userDataString ? JSON.parse(userDataString) : null;
         setUserRole(userData?.role || "customer"); // Default to customer
       }
     } catch (error) {
-      console.error("Failed to fetch user role from API, falling back to storage:", error);
+      console.error(
+        "Failed to fetch user role from API, falling back to storage:",
+        error
+      );
       // Fallback to storage on API error
       try {
         const userDataString = await AsyncStorage.getItem("userData");
@@ -728,7 +733,9 @@ export default function HomeScreen() {
                   >
                     <Image
                       source={
-                        product.image
+                        product.image && product.image.length > 0
+                          ? { uri: product.image[0] }
+                          : product.image
                           ? { uri: product.image }
                           : defaultProductImage
                       }
@@ -801,7 +808,9 @@ export default function HomeScreen() {
                     >
                       <Image
                         source={
-                          product.image
+                          product.images && product.images.length > 0
+                            ? { uri: product.images[0] }
+                            : product.image
                             ? { uri: product.image }
                             : defaultProductImage
                         }
