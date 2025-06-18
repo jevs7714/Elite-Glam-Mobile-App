@@ -118,6 +118,7 @@ const CustomHeaderTitle = () => {
 export default function TabsLayout() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [notificationCount, setNotificationCount] = useState(0);
 
   const loadUserData = useCallback(async () => {
     // Do not set loading to true on every focus, only on initial load.
@@ -171,10 +172,21 @@ export default function TabsLayout() {
     }
   }, [isLoading]); // Depend on isLoading to run this once initially
 
+  const fetchNotificationCount = useCallback(async () => {
+    try {
+      const notifications = await notificationsService.getNotifications();
+      const unreadCount = notifications.filter((n) => !n.isRead).length;
+      setNotificationCount(unreadCount);
+    } catch (error) {
+      console.error("Failed to fetch notification count for layout:", error);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       loadUserData();
-    }, [loadUserData])
+      fetchNotificationCount();
+    }, [loadUserData, fetchNotificationCount])
   );
 
   if (isLoading) {
@@ -269,6 +281,7 @@ export default function TabsLayout() {
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="notifications" size={size} color={color} />
               ),
+              tabBarBadge: notificationCount > 0 ? notificationCount : undefined,
             }}
           />
           <Tabs.Screen
