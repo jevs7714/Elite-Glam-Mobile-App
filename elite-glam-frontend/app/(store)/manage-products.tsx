@@ -112,7 +112,7 @@ export default function ManageProductsScreen() {
 
   const handleEditProduct = (product: Product) => {
     router.push({
-      pathname: '/(store)/edit-product',
+      pathname: '/(store)/post-product',
       params: {
         id: product.id,
         name: product.name,
@@ -200,7 +200,7 @@ export default function ManageProductsScreen() {
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity 
           style={styles.retryButton}
-          onPress={checkUserAndFetchProducts}
+          onPress={() => checkUserAndFetchProducts(1, true)}
         >
           <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>

@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useFocusEffect } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   TouchableOpacity,
@@ -11,10 +11,11 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "../../services/api";
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -118,22 +119,63 @@ export default function TabsLayout() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
+  const loadUserData = useCallback(async () => {
+    // Do not set loading to true on every focus, only on initial load.
+    // The isLoading state is handled by the initial useState(true).
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setUserData(null); // Guest user
+        return;
+      }
+
+      // If token exists, fetch fresh user data from API
+      const response = await api.get("/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data) {
+        // Update AsyncStorage to keep it in sync
         const storedData = await AsyncStorage.getItem("userData");
-        if (storedData) {
-          setUserData(JSON.parse(storedData));
-        }
-      } catch (error) {
-        console.error("Error loading user data from storage:", error);
-      } finally {
+        const storedUserData = storedData ? JSON.parse(storedData) : {};
+        const updatedUserData = { ...storedUserData, ...response.data };
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+
+        // Set state to trigger re-render
+        setUserData(updatedUserData);
+      } else {
+        // Fallback to whatever is in storage if API fails
+        const userDataString = await AsyncStorage.getItem("userData");
+        setUserData(userDataString ? JSON.parse(userDataString) : null);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to fetch user data for layout, falling back to storage:",
+        error
+      );
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        setUserData(userDataString ? JSON.parse(userDataString) : null);
+      } catch (storageError) {
+        console.error(
+          "Failed to read user data from storage for layout:",
+          storageError
+        );
+        setUserData(null); // Ultimate fallback
+      }
+    } finally {
+      // Ensure loading is turned off after the first load.
+      if (isLoading) {
         setIsLoading(false);
       }
-    };
+    }
+  }, [isLoading]); // Depend on isLoading to run this once initially
 
-    loadUserData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [loadUserData])
+  );
 
   if (isLoading) {
     return (
@@ -193,22 +235,32 @@ export default function TabsLayout() {
               ),
             }}
           />
-          {!isShopOwner && (
-            <Tabs.Screen
-              name="rent-later"
-              options={{
-                title: "My Cart",
-                headerTitle: "My Cart",
-                tabBarIcon: ({ color, size }) => (
-                  <MaterialIcons
-                    name="shopping-cart"
-                    size={size}
-                    color={color}
-                  />
-                ),
-              }}
-            />
-          )}
+          <Tabs.Screen
+            name="manage"
+            options={{
+              title: "Manage",
+              headerTitle: "Manage Products",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons name="store" size={size} color={color} />
+              ),
+              href: isShopOwner ? "/manage" : null,
+            }}
+          />
+          <Tabs.Screen
+            name="my-cart"
+            options={{
+              title: "My Cart",
+              headerTitle: "My Cart",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons
+                  name="shopping-cart"
+                  size={size}
+                  color={color}
+                />
+              ),
+              href: !isShopOwner ? "/my-cart" : null,
+            }}
+          />
           <Tabs.Screen
             name="notifications"
             options={{
@@ -228,6 +280,7 @@ export default function TabsLayout() {
               ),
             }}
           />
+
           <Tabs.Screen
             name="edit-profile"
             options={{
