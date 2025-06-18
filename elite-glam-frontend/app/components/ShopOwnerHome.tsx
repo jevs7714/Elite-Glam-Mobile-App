@@ -240,9 +240,6 @@ export default function ShopOwnerHome() {
                   return order;
                 });
               });
-
-              // Also refresh the list to ensure consistency with the server
-              fetchOrders();
             } catch (error) {
               console.error("Error updating order status:", error);
               Alert.alert("Error", "Failed to update order status");
