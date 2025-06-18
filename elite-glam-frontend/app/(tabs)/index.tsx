@@ -270,25 +270,73 @@ export default function HomeScreen() {
     );
   }, [activeFilters]);
 
+  // Consolidated function to check user role
+  const checkUserRole = useCallback(async () => {
+    setIsRoleLoading(true);
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+
+      // If no token, assume guest or logged-out state. Default to customer view.
+      if (!token) {
+        setUserRole("customer"); // Default to customer view for guests
+        console.log("No token found, setting role to customer.");
+        return;
+      }
+
+      // If token exists, fetch fresh user data from API
+      const response = await api.get("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.role) {
+        const role = response.data.role;
+        console.log("Fetched user role from API:", role);
+        setUserRole(role);
+
+        // Update the userData in AsyncStorage to keep it in sync
+        const storedData = await AsyncStorage.getItem("userData");
+        const storedUserData = storedData ? JSON.parse(storedData) : {};
+        const updatedUserData = { ...storedUserData, ...response.data };
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      } else {
+        // Fallback to storage if API response is incomplete
+        console.log("API response incomplete, falling back to storage for role.");
+        const userDataString = await AsyncStorage.getItem("userData");
+        const userData = userDataString ? JSON.parse(userDataString) : null;
+        setUserRole(userData?.role || "customer"); // Default to customer
+      }
+    } catch (error) {
+      console.error("Failed to fetch user role from API, falling back to storage:", error);
+      // Fallback to storage on API error
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        const userData = userDataString ? JSON.parse(userDataString) : null;
+        setUserRole(userData?.role || "customer"); // Default to customer
+        console.log("Fell back to role from storage:", userData?.role);
+      } catch (storageError) {
+        console.error("Failed to read user role from storage:", storageError);
+        setUserRole("customer"); // Ultimate fallback
+      }
+    } finally {
+      setIsRoleLoading(false);
+    }
+  }, []);
+
   // Effect to check the user role whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
-      const checkUserRole = async () => {
-        setIsRoleLoading(true);
-        try {
-          const userDataString = await AsyncStorage.getItem("userData");
-          const userData = userDataString ? JSON.parse(userDataString) : null;
-          setUserRole(userData?.role || null);
-        } catch (error) {
-          console.error("Failed to fetch user role:", error);
-          setUserRole(null); // Default to customer on error
-        } finally {
-          setIsRoleLoading(false);
-        }
-      };
       checkUserRole();
-    }, [])
+    }, [checkUserRole])
   );
+
+  // Effect to specifically handle the refresh after login
+  useEffect(() => {
+    if (loginSuccess === "true") {
+      checkUserRole();
+    }
+  }, [loginSuccess, checkUserRole]);
 
   // Effect to fetch data based on the user's role
   useEffect(() => {
@@ -305,26 +353,6 @@ export default function HomeScreen() {
     // Load search history for all users
     loadSearchHistory();
   }, [userRole, isRoleLoading, isSearchActive, activeFilters]);
-
-  // Effect to specifically handle the refresh after login
-  useEffect(() => {
-    if (loginSuccess === "true") {
-      const checkUserRole = async () => {
-        setIsRoleLoading(true);
-        try {
-          const userDataString = await AsyncStorage.getItem("userData");
-          const userData = userDataString ? JSON.parse(userDataString) : null;
-          setUserRole(userData?.role || null);
-        } catch (error) {
-          console.error("Failed to fetch user role on login refresh:", error);
-          setUserRole(null);
-        } finally {
-          setIsRoleLoading(false);
-        }
-      };
-      checkUserRole();
-    }
-  }, [loginSuccess]);
 
   // --- Search Functionality Logic ---
   const loadSearchFromCache = async (
@@ -554,6 +582,22 @@ export default function HomeScreen() {
   );
 
   // --- Render Logic ---
+  // Check role loading first - this is the most important condition
+  if (isRoleLoading || userRole === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Once role is determined, show appropriate view
+  if (userRole === "shop_owner") {
+    return <ShopOwnerHome />;
+  }
+
+  // For customers, check if products are loading
   if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive) {
     return (
       <View style={styles.loadingContainer}>
@@ -561,18 +605,6 @@ export default function HomeScreen() {
         <Text style={styles.loadingText}>Loading Products...</Text>
       </View>
     );
-  }
-
-  if (isRoleLoading || userRole === null) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#6B4EFF" />
-      </View>
-    );
-  }
-
-  if (userRole === "shop_owner") {
-    return <ShopOwnerHome />;
   }
 
   return (

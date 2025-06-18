@@ -110,19 +110,6 @@ const CustomHeaderTitle = () => {
           <Text style={styles.brandLam}>lam</Text>
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={() => router.push("/(tabs)/notifications")}
-      >
-        <MaterialIcons name="notifications" size={24} color="#fff" />
-        {unreadCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {unreadCount > 99 ? "99+" : unreadCount.toString()}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
     </View>
   );
 };
