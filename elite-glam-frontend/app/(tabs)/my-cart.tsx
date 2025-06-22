@@ -50,10 +50,6 @@ export default function RentLaterScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Rent Later</Text>
-      </View>
 
       {/* Rent Later Items List */}
       <ScrollView 

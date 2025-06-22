@@ -1,4 +1,10 @@
-import { Injectable, ConflictException, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PasswordService } from './password.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -15,7 +21,7 @@ export class UsersService {
   async createUser(createUserDto: CreateUserDto): Promise<UserRecord> {
     // Validate password strength
     const passwordValidation = this.passwordService.validatePasswordStrength(
-      createUserDto.password
+      createUserDto.password,
     );
 
     if (!passwordValidation.isValid) {
@@ -32,6 +38,7 @@ export class UsersService {
         username: createUserDto.username,
         email: createUserDto.email,
         password: createUserDto.password,
+        role: createUserDto.role,
       });
 
       return userRecord;
@@ -71,7 +78,7 @@ export class UsersService {
       const userDoc = snapshot.docs[0];
       return {
         uid: userDoc.id,
-        ...userDoc.data()
+        ...userDoc.data(),
       };
     } catch (error) {
       console.error('Error getting user by username:', error);
@@ -85,20 +92,20 @@ export class UsersService {
   async login(loginUserDto: LoginUserDto) {
     try {
       const auth = this.firebaseService.getAuth();
-      
+
       // Verify the email exists
       const userRecord = await auth.getUserByEmail(loginUserDto.email);
-      
+
       if (!userRecord) {
         throw new UnauthorizedException('Invalid credentials');
       }
 
       // Create a custom token
       const customToken = await auth.createCustomToken(userRecord.uid);
-      
+
       // Get user data from Firestore
       const userData = await this.firebaseService.getUserByUid(userRecord.uid);
-      
+
       if (!userData) {
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -116,4 +123,4 @@ export class UsersService {
       throw new UnauthorizedException('Invalid credentials');
     }
   }
-} 
+}

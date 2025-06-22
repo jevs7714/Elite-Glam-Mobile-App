@@ -1,4 +1,19 @@
-import { Controller, Post, Get, Body, HttpException, HttpStatus, UnauthorizedException, UseGuards, Req, UseInterceptors, UploadedFile, Put, Delete, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+  UseGuards,
+  Req,
+  UseInterceptors,
+  UploadedFile,
+  Put,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseService } from '../firebase/firebase.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -24,7 +39,8 @@ export class AuthController {
       return {
         uid: user.uid,
         email: user.email,
-        username: user.username
+        username: user.username,
+        role: user.role, // Add role to the response
       };
     } catch (error) {
       console.error('Error getting current user:', error);
@@ -38,58 +54,82 @@ export class AuthController {
       console.log('Received registration request:', {
         ...createUserDto,
         password: '[REDACTED]',
-        passwordConfirm: '[REDACTED]'
+        passwordConfirm: '[REDACTED]',
       });
-      
+
       // Validate input
-      if (!createUserDto.email || !createUserDto.password || !createUserDto.username) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'All fields are required',
-        }, HttpStatus.BAD_REQUEST);
+      if (
+        !createUserDto.email ||
+        !createUserDto.password ||
+        !createUserDto.username
+      ) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'All fields are required',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (!createUserDto.email.includes('@')) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Please enter a valid email address',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Please enter a valid email address',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (createUserDto.password.length < 6) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Password must be at least 6 characters long',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Password must be at least 6 characters long',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (createUserDto.password !== createUserDto.passwordConfirm) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Passwords do not match',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Passwords do not match',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (createUserDto.username.length < 3) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Username must be at least 3 characters long',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Username must be at least 3 characters long',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // Check if email already exists
-      const existingUser = await this.firebaseService.getUserByEmail(createUserDto.email);
+      const existingUser = await this.firebaseService.getUserByEmail(
+        createUserDto.email,
+      );
       if (existingUser) {
-        throw new HttpException({
-          status: HttpStatus.CONFLICT,
-          error: 'Registration failed',
-          message: 'Email already exists',
-        }, HttpStatus.CONFLICT);
+        throw new HttpException(
+          {
+            status: HttpStatus.CONFLICT,
+            error: 'Registration failed',
+            message: 'Email already exists',
+          },
+          HttpStatus.CONFLICT,
+        );
       }
 
       // Create user in Firebase
@@ -97,16 +137,19 @@ export class AuthController {
         username: createUserDto.username,
         email: createUserDto.email,
         password: createUserDto.password,
+        role: createUserDto.role, // Pass role to Firebase service
       });
-      
+
       console.log('User created successfully:', {
         uid: userRecord.uid,
         email: userRecord.email,
-        username: userRecord.username
+        username: userRecord.username,
       });
 
       // Generate custom token for the new user
-      const customToken = await this.firebaseService.createCustomToken(userRecord.uid);
+      const customToken = await this.firebaseService.createCustomToken(
+        userRecord.uid,
+      );
       console.log('Custom token generated successfully');
 
       // Return user data and custom token
@@ -114,29 +157,32 @@ export class AuthController {
         user: {
           uid: userRecord.uid,
           email: userRecord.email,
-          username: userRecord.username
+          username: userRecord.username,
         },
-        token: customToken
+        token: customToken,
       };
 
       console.log('Sending registration response:', {
         ...response,
-        token: '[REDACTED]'
+        token: '[REDACTED]',
       });
 
       return response;
     } catch (error) {
       console.error('Registration error:', error);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
 
-      throw new HttpException({
-        status: HttpStatus.BAD_REQUEST,
-        error: 'Registration failed',
-        message: error.message || 'An error occurred during registration',
-      }, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        {
+          status: HttpStatus.BAD_REQUEST,
+          error: 'Registration failed',
+          message: error.message || 'An error occurred during registration',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -144,26 +190,35 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto) {
     try {
       console.log('Login attempt for email:', loginDto.email);
-      
+
       // Validate input
       if (!loginDto.email || !loginDto.password) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Email and password are required',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Email and password are required',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       if (!loginDto.email.includes('@')) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Please enter a valid email address',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Please enter a valid email address',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // Verify user and get user data with custom token
-      const userData = await this.firebaseService.verifyPassword(loginDto.email, loginDto.password);
+      const userData = await this.firebaseService.verifyPassword(
+        loginDto.email,
+        loginDto.password,
+      );
       console.log('User verified:', userData.uid);
 
       // Return user data and custom token
@@ -171,20 +226,20 @@ export class AuthController {
         user: {
           uid: userData.uid,
           email: userData.email,
-          username: userData.username
+          username: userData.username,
         },
-        token: userData.customToken
+        token: userData.customToken,
       };
 
       console.log('Sending login response:', {
         ...response,
-        token: '[REDACTED]'
+        token: '[REDACTED]',
       });
 
       return response;
     } catch (error) {
       console.error('Login failed:', error);
-      
+
       if (error instanceof HttpException) {
         throw error;
       }
@@ -195,33 +250,44 @@ export class AuthController {
 
   @Post('upload-photo')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('photo', {
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB limit
-    },
-    fileFilter: (req, file, callback) => {
-      // Accept only image files
-      if (!file.mimetype.match(/^image\/(jpeg|png|gif|webp)$/)) {
-        return callback(new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'Only image files are allowed',
-        }, HttpStatus.BAD_REQUEST), false);
-      }
-      callback(null, true);
-    },
-  }))
+  @UseInterceptors(
+    FileInterceptor('photo', {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+      },
+      fileFilter: (req, file, callback) => {
+        // Accept only image files
+        if (!file.mimetype.match(/^image\/(jpeg|png|gif|webp)$/)) {
+          return callback(
+            new HttpException(
+              {
+                status: HttpStatus.BAD_REQUEST,
+                error: 'Validation failed',
+                message: 'Only image files are allowed',
+              },
+              HttpStatus.BAD_REQUEST,
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
   async uploadPhoto(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
     try {
       if (!file) {
-        throw new HttpException({
-          status: HttpStatus.BAD_REQUEST,
-          error: 'Validation failed',
-          message: 'No file uploaded',
-        }, HttpStatus.BAD_REQUEST);
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'No file uploaded',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
       }
 
       // Get user ID from request (assuming it's set by auth middleware)
@@ -238,7 +304,10 @@ export class AuthController {
       });
 
       // Upload to ImageKit
-      const photoUrl = await this.imageKitService.uploadImage(file, 'profile-photos');
+      const photoUrl = await this.imageKitService.uploadImage(
+        file,
+        'profile-photos',
+      );
       console.log('Photo uploaded successfully:', photoUrl);
 
       // Update user profile with new photo URL
@@ -250,11 +319,14 @@ export class AuthController {
       return { photoUrl };
     } catch (error) {
       console.error('Error uploading photo:', error);
-      throw new HttpException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        error: 'Upload failed',
-        message: error.message || 'Failed to upload photo',
-      }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Upload failed',
+          message: error.message || 'Failed to upload photo',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
@@ -262,7 +334,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(
     @Req() req: any,
-    @Body() updateData: {
+    @Body()
+    updateData: {
       username?: string;
       email?: string;
       profile?: {
@@ -279,11 +352,11 @@ export class AuthController {
       };
       currentPassword?: string;
       newPassword?: string;
-    }
+    },
   ) {
     try {
       const userId = req.user.uid;
-      
+
       // Update profile in Firestore
       await this.firebaseService.updateUserProfile(userId, {
         bio: updateData.profile?.bio,
@@ -320,17 +393,14 @@ export class AuthController {
       console.error('Error updating profile:', error);
       throw new HttpException(
         error.message || 'Failed to update profile',
-        HttpStatus.INTERNAL_SERVER_ERROR
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
   @Delete('photos/:fileId')
   @UseGuards(JwtAuthGuard)
-  async deletePhoto(
-    @Param('fileId') fileId: string,
-    @Req() req: any,
-  ) {
+  async deletePhoto(@Param('fileId') fileId: string, @Req() req: any) {
     try {
       const userId = req.user?.uid;
       if (!userId) {
@@ -356,11 +426,14 @@ export class AuthController {
       return { message: 'Photo deleted successfully' };
     } catch (error) {
       console.error('Error deleting photo:', error);
-      throw new HttpException({
-        status: HttpStatus.INTERNAL_SERVER_ERROR,
-        error: 'Delete failed',
-        message: error.message || 'Failed to delete photo',
-      }, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Delete failed',
+          message: error.message || 'Failed to delete photo',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
-} 
+}

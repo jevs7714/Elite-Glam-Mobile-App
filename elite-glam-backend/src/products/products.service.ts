@@ -10,6 +10,8 @@ export interface Product extends CreateProductDto {
   sellerName?: string;
   sellerPhoto?: string;
   imageFileId?: string;
+  available: boolean; // Added available status
+  averageRating?: number; // To hold the calculated average rating
 }
 
 const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -24,7 +26,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Perfect for weddings and formal events',
     rentAvailable: true,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 5 > 0
   },
   {
     name: 'Classic Business Suit',
@@ -37,7 +40,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Ideal for business meetings and interviews',
     rentAvailable: true,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 3 > 0
   },
   {
     name: 'Professional Makeup Kit',
@@ -50,7 +54,8 @@ const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
     condition: 'new',
     sellerMessage: 'Includes all essential products for professional makeup application',
     rentAvailable: false,
-    userId: 'sample-user-1'
+    userId: 'sample-user-1',
+    available: true // quantity: 10 > 0
   }
 ];
 
@@ -58,7 +63,11 @@ interface FindAllOptions {
   userId?: string;
   page?: number;
   limit?: number;
-  category?: string;
+  categories?: string[];
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  search?: string;
 }
 
 @Injectable()
@@ -129,33 +138,80 @@ export class ProductsService implements OnModuleInit {
   }
 
   async findAll(options: FindAllOptions = {}): Promise<Product[]> {
+    const {
+      userId,
+      page = 1,
+      limit = 8,
+      categories,
+      minPrice,
+      maxPrice,
+      minRating,
+      search,
+    } = options;
+
     try {
-      const { userId, page = 1, limit = 8, category } = options;
-      console.log('Finding products with options:', options);
+      const productsRef = await this.firebaseService.getCollection(this.COLLECTION);
+      let query: any = productsRef;
 
-      // Get all products from Firebase
-      let products = await this.firebaseService.findAll<Product>(this.COLLECTION);
-
-      // Apply filters
+      // Apply Firestore-compatible filters first
       if (userId) {
-        products = products.filter(product => product.userId === userId);
+        query = query.where('userId', '==', userId);
       }
-      if (category) {
-        products = products.filter(product => 
-          product.category.toLowerCase() === category.toLowerCase()
+      if (categories && categories.length > 0) {
+        query = query.where('category', 'in', categories);
+      }
+      if (minPrice !== undefined) {
+        query = query.where('price', '>=', minPrice);
+      }
+      if (maxPrice !== undefined) {
+        query = query.where('price', '<=', maxPrice);
+      }
+
+      const snapshot = await query.get();
+      const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+
+      // Fetch ratings and calculate average for each product
+      const productsWithRatings = await Promise.all(
+        products.map(async (product) => {
+          const ratingsRef = await this.firebaseService.getCollection('ratings');
+          const ratingsSnapshot = await ratingsRef.where('productId', '==', product.id).get();
+          
+          if (ratingsSnapshot.empty) {
+            return { ...product, averageRating: 0 };
+          }
+
+          const ratings = ratingsSnapshot.docs.map(doc => doc.data().rating);
+          const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+          
+          return { ...product, averageRating };
+        })
+      );
+
+      let filteredProducts = productsWithRatings;
+
+      // Apply minRating filter in memory
+      if (minRating !== undefined) {
+        filteredProducts = filteredProducts.filter(p => p.averageRating >= minRating);
+      }
+
+      // Post-filter for search
+      if (search) {
+        const lowercasedSearch = search.toLowerCase();
+        filteredProducts = filteredProducts.filter(p =>
+          p.name.toLowerCase().includes(lowercasedSearch) ||
+          p.description.toLowerCase().includes(lowercasedSearch)
         );
       }
 
-      // Calculate pagination
+      // Manual pagination after all filtering
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
-      const paginatedProducts = products.slice(startIndex, endIndex);
 
-      console.log(`Returning ${paginatedProducts.length} products for page ${page}`);
-      return paginatedProducts;
+      return filteredProducts.slice(startIndex, endIndex);
+
     } catch (error) {
       console.error('Error fetching products:', error);
-      throw error;
+      throw new InternalServerErrorException('Failed to fetch products.');
     }
   }
 
@@ -180,7 +236,13 @@ export class ProductsService implements OnModuleInit {
         }
       }
 
-    return product;
+    // Add available property
+    const productWithAvailability = {
+      ...product,
+      available: product.quantity > 0,
+    };
+
+    return productWithAvailability;
     } catch (error) {
       console.error('Error fetching product:', error);
       throw error;
@@ -254,6 +316,58 @@ export class ProductsService implements OnModuleInit {
     } catch (error) {
       console.error('Error deleting product:', error);
       throw error;
+    }
+  }
+
+  async findFromSameShop(productId: string, limit: number = 5): Promise<Product[]> {
+    try {
+      console.log(`Finding products from the same shop as product ID: ${productId}`);
+      const originalProduct = await this.findOne(productId);
+      if (!originalProduct.userId) {
+        console.warn(`Product with ID "${productId}" does not have a seller associated.`);
+        return []; // No seller, so no other products from the same shop
+      }
+
+      const sellerId = originalProduct.userId;
+      console.log(`Original product's seller ID: ${sellerId}`);
+
+      // Fetch all products from the same seller, without pagination for this internal call
+      const allProductsFromSeller = await this.findAll({ userId: sellerId, limit: 50, page: 1 }); // Limit to 50 to be safe
+      console.log(`Found ${allProductsFromSeller.length} total products from seller ${sellerId}`);
+
+      // Filter out the original product and take the first 'limit' products
+      const otherProducts = allProductsFromSeller
+        .filter(product => product.id !== productId)
+        .slice(0, limit);
+
+      // Enhance products with average rating
+      const productsWithRatings = await Promise.all(
+        otherProducts.map(async (product) => {
+          const ratingsRef = await this.firebaseService.getCollection('ratings');
+          const ratingsQuery = ratingsRef.where('productId', '==', product.id);
+          const ratingsSnapshot = await ratingsQuery.get();
+          
+          const ratings: { rating: number }[] = ratingsSnapshot.docs.map(doc => doc.data() as { rating: number });
+
+          if (ratings.length > 0) {
+            const sum = ratings.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+            product.rating = sum / ratings.length;
+          } else {
+            product.rating = 0;
+          }
+
+          return product;
+        }),
+      );
+
+      console.log(`Returning ${productsWithRatings.length} other products from the same shop with ratings.`);
+      return productsWithRatings;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error; // Re-throw not found exception
+      }
+      console.error(`Error finding products from the same shop for product ID ${productId}:`, error);
+      throw new InternalServerErrorException('Failed to fetch products from the same shop.');
     }
   }
 } 

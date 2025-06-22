@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { v4 as uuidv4 } from 'uuid';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -22,8 +28,8 @@ export interface Booking {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
-  uid: string;        // ID of the customer who made the booking
-  ownerUid: string;   // ID of the seller who owns the product
+  uid: string; // ID of the customer who made the booking
+  ownerUid: string; // ID of the seller who owns the product
   sellerLocation?: string;
   productImage?: string;
   ownerUsername: string;
@@ -64,69 +70,75 @@ interface BookingData {
 export class BookingsService {
   private readonly collection = 'bookings';
 
-  constructor(private readonly firebaseService: FirebaseService) {}
+  constructor(
+    private readonly firebaseService: FirebaseService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
-  async getAllBookings(userId: string, isAdmin: boolean = false): Promise<Booking[]> {
+  async getAllBookings(
+    userId: string,
+    isAdmin: boolean = false,
+  ): Promise<Booking[]> {
     try {
       console.log(`Fetching bookings for user: ${userId}, isAdmin: ${isAdmin}`);
-      const bookingsRef = await this.firebaseService.getCollection(this.collection);
-      
+      const bookingsRef = await this.firebaseService.getCollection(
+        this.collection,
+      );
+
       // If user is admin, return all bookings
       if (isAdmin) {
-          const snapshot = await bookingsRef
-            .orderBy('createdAt', 'desc')
-            .get();
-          
-          return snapshot.docs.map(doc => {
-            const data = doc.data() as BookingData;
-            return {
-              id: doc.id,
-              ...data,
-              createdAt: data.createdAt.toDate(),
-              updatedAt: data.updatedAt.toDate(),
-            } as Booking;
-          });
+        const snapshot = await bookingsRef.orderBy('createdAt', 'desc').get();
+
+        return snapshot.docs.map((doc) => {
+          const data = doc.data() as BookingData;
+          return {
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+          } as Booking;
+        });
       }
-      
+
       // For regular users, return bookings where they are either the customer or the seller
       try {
         // Get all bookings where user is the customer
         const customerBookings = await bookingsRef
           .where('uid', '==', userId)
           .get();
-        
+
         console.log('Customer bookings found:', {
           userId,
           count: customerBookings.docs.length,
-          bookings: customerBookings.docs.map(doc => ({
+          bookings: customerBookings.docs.map((doc) => ({
             id: doc.id,
             customerName: doc.data().customerName,
             status: doc.data().status,
             uid: doc.data().uid,
-            ownerUid: doc.data().ownerUid
-          }))
+            ownerUid: doc.data().ownerUid,
+          })),
         });
-        
+
         // Get all bookings where user is the seller
         const sellerBookings = await bookingsRef
           .where('ownerUid', '==', userId)
           .get();
-        
+
         console.log('Seller bookings found:', {
           userId,
           count: sellerBookings.docs.length,
-          bookings: sellerBookings.docs.map(doc => ({
+          bookings: sellerBookings.docs.map((doc) => ({
             id: doc.id,
             customerName: doc.data().customerName,
             status: doc.data().status,
             uid: doc.data().uid,
-            ownerUid: doc.data().ownerUid
-          }))
+            ownerUid: doc.data().ownerUid,
+          })),
         });
-        
+
         // Combine and sort the results
         const allBookings = [
-          ...customerBookings.docs.map(doc => {
+          ...customerBookings.docs.map((doc) => {
             const data = doc.data() as BookingData;
             return {
               id: doc.id,
@@ -135,7 +147,7 @@ export class BookingsService {
               updatedAt: data.updatedAt.toDate(),
             } as Booking;
           }),
-          ...sellerBookings.docs.map(doc => {
+          ...sellerBookings.docs.map((doc) => {
             const data = doc.data() as BookingData;
             return {
               id: doc.id,
@@ -143,9 +155,9 @@ export class BookingsService {
               createdAt: data.createdAt.toDate(),
               updatedAt: data.updatedAt.toDate(),
             } as Booking;
-          })
+          }),
         ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        
+
         console.log('Total bookings found:', allBookings.length);
         return allBookings;
       } catch (error) {
@@ -162,24 +174,22 @@ export class BookingsService {
     try {
       console.log(`Fetching bookings for user: ${userId}`);
       const bookingsRef = await this.firebaseService.getCollection('bookings');
-        const snapshot = await bookingsRef
-        .where('uid', '==', userId)
-          .get();
-        
+      const snapshot = await bookingsRef.where('uid', '==', userId).get();
+
       if (snapshot.empty) {
         console.log('No bookings found for user:', userId);
         return [];
       }
 
-      const bookings = snapshot.docs.map(doc => {
-          const data = doc.data() as BookingData;
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
-          } as Booking;
-        });
+      const bookings = snapshot.docs.map((doc) => {
+        const data = doc.data() as BookingData;
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Booking;
+      });
 
       // Sort the bookings in memory instead of in the query
       bookings.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -196,23 +206,23 @@ export class BookingsService {
     try {
       console.log(`Fetching bookings for seller: ${sellerId}`);
       const bookingsRef = await this.firebaseService.getCollection('bookings');
-        const snapshot = await bookingsRef
+      const snapshot = await bookingsRef
         .where('ownerUid', '==', sellerId)
-          .get();
-        
+        .get();
+
       if (snapshot.empty) {
         console.log('No bookings found for seller:', sellerId);
         return [];
       }
 
-      const bookings = snapshot.docs.map(doc => {
-          const data = doc.data() as BookingData;
-          return {
-            id: doc.id,
-            ...data,
-            createdAt: data.createdAt.toDate(),
-            updatedAt: data.updatedAt.toDate(),
-          } as Booking;
+      const bookings = snapshot.docs.map((doc) => {
+        const data = doc.data() as BookingData;
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt.toDate(),
+          updatedAt: data.updatedAt.toDate(),
+        } as Booking;
       });
 
       // Sort the bookings in memory instead of in the query
@@ -231,20 +241,27 @@ export class BookingsService {
       console.log(`Fetching booking with ID: ${id} for user: ${uid}`);
       const doc = await this.firebaseService.getDocument(this.collection, id);
       const data = await doc.get();
-      
+
       if (!data.exists) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
 
       const docData = data.data() as BookingData;
       if (docData.uid !== uid && docData.ownerUid !== uid) {
-        throw new ForbiddenException('You do not have permission to access this booking');
+        throw new ForbiddenException(
+          'You do not have permission to access this booking',
+        );
       }
 
       // Fetch the owner's username from the users collection
-      const ownerDoc = await this.firebaseService.getDocument('users', docData.ownerUid);
+      const ownerDoc = await this.firebaseService.getDocument(
+        'users',
+        docData.ownerUid,
+      );
       const ownerData = await ownerDoc.get();
-      const ownerUsername = ownerData.exists ? ownerData.data().username : 'Unknown';
+      const ownerUsername = ownerData.exists
+        ? ownerData.data().username
+        : 'Unknown';
 
       return {
         id: data.id,
@@ -255,19 +272,25 @@ export class BookingsService {
       } as Booking;
     } catch (error) {
       console.error('Error fetching booking:', error);
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to fetch booking');
     }
   }
 
-  async createBooking(bookingData: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>, uid: string): Promise<Booking> {
+  async createBooking(
+    bookingData: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>,
+    uid: string,
+  ): Promise<Booking> {
     try {
       console.log(`Creating booking for user: ${uid}`, bookingData);
       const id = uuidv4();
       const now = new Date();
-      
+
       // Ensure ownerUid is included in the booking data
       if (!bookingData.ownerUid) {
         throw new Error('ownerUid is required for creating a booking');
@@ -300,7 +323,7 @@ export class BookingsService {
         eventType: bookingData.eventType,
         fittingTime: bookingData.fittingTime,
         fittingTimePeriod: bookingData.fittingTimePeriod,
-        eventLocation: bookingData.eventLocation
+        eventLocation: bookingData.eventLocation,
       };
 
       console.log('Saving booking to database:', {
@@ -308,10 +331,29 @@ export class BookingsService {
         uid: booking.uid,
         ownerUid: booking.ownerUid,
         status: booking.status,
-        serviceName: booking.serviceName
+        serviceName: booking.serviceName,
       });
 
       await this.firebaseService.addDocument(this.collection, booking);
+
+      // Notify the seller about the new booking
+      try {
+        await this.notificationsService.notifyNewBooking(
+          booking.ownerUid,
+          booking.id,
+          booking.serviceName,
+          booking.customerName,
+          booking.productId,
+        );
+        console.log('Notification sent to seller for new booking');
+      } catch (notificationError) {
+        console.error(
+          'Failed to send notification to seller:',
+          notificationError,
+        );
+        // Don't fail the booking creation if notification fails
+      }
+
       return booking;
     } catch (error) {
       console.error('Error creating booking:', error);
@@ -322,31 +364,87 @@ export class BookingsService {
     }
   }
 
-  async updateBookingStatus(id: string, status: Booking['status'], uid: string, message?: string): Promise<Booking> {
+  async updateBookingStatus(
+    id: string,
+    status: Booking['status'],
+    uid: string,
+    message?: string,
+  ): Promise<Booking> {
     try {
       console.log(`Updating booking status for ID: ${id}, user: ${uid}`);
       const doc = await this.firebaseService.getDocument(this.collection, id);
       const data = await doc.get();
-      
+
       if (!data.exists) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
 
       const docData = data.data() as BookingData;
       if (docData.uid !== uid && docData.ownerUid !== uid) {
-        throw new ForbiddenException('You do not have permission to update this booking');
+        throw new ForbiddenException(
+          'You do not have permission to update this booking',
+        );
       }
 
       const updateData = {
         status,
         updatedAt: new Date(),
-        ...(status === 'rejected' && message ? { rejectionMessage: message } : {})
+        ...(status === 'rejected' && message
+          ? { rejectionMessage: message }
+          : {}),
       };
 
-      await this.firebaseService.updateDocument(this.collection, id, updateData);
+      await this.firebaseService.updateDocument(
+        this.collection,
+        id,
+        updateData,
+      );
+
+      // Send notifications based on status change
+      try {
+        if (status === 'confirmed' && docData.uid !== uid) {
+          // Seller confirmed the booking - notify customer
+          await this.notificationsService.notifyBookingAccepted(
+            docData.uid,
+            id,
+            docData.serviceName,
+            docData.productId, // Added productId
+          );
+          console.log('Notification sent to customer for booking acceptance');
+        } else if (status === 'rejected' && docData.uid !== uid) {
+          // Seller rejected the booking - notify customer
+          await this.notificationsService.notifyBookingRejected(
+            docData.uid,
+            id,
+            docData.serviceName,
+            message,
+            docData.productId,
+          );
+          console.log('Notification sent to customer for booking rejection');
+        } else if (status === 'cancelled' && docData.ownerUid !== uid) {
+          // Customer cancelled the booking - notify seller
+          await this.notificationsService.notifyBookingCancelled(
+            docData.ownerUid,
+            id,
+            docData.serviceName,
+            docData.customerName,
+            docData.productId,
+          );
+          console.log('Notification sent to seller for booking cancellation');
+        }
+      } catch (notificationError) {
+        console.error(
+          'Failed to send notification for status change:',
+          notificationError,
+        );
+        // Don't fail the status update if notification fails
+      }
 
       // Fetch and return the updated booking
-      const updatedDoc = await this.firebaseService.getDocument(this.collection, id);
+      const updatedDoc = await this.firebaseService.getDocument(
+        this.collection,
+        id,
+      );
       const updatedData = await updatedDoc.get();
       const updatedDocData = updatedData.data() as BookingData;
 
@@ -358,7 +456,10 @@ export class BookingsService {
       } as Booking;
     } catch (error) {
       console.error('Error updating booking status:', error);
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to update booking status');
@@ -373,40 +474,51 @@ export class BookingsService {
     try {
       const doc = await this.firebaseService.getDocument(this.collection, id);
       const data = await doc.get();
-      
+
       if (!data.exists) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
 
       const docData = data.data() as BookingData;
       if (docData.uid !== uid && docData.ownerUid !== uid) {
-        throw new ForbiddenException('You do not have permission to delete this booking');
+        throw new ForbiddenException(
+          'You do not have permission to delete this booking',
+        );
       }
 
       await this.firebaseService.delete(this.collection, id);
       return { message: 'Booking deleted successfully' };
     } catch (error) {
       console.error('Error deleting booking:', error);
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to delete booking');
     }
   }
 
-  async submitRating(id: string, ratingData: Omit<Rating, 'createdAt' | 'updatedAt'>, uid: string): Promise<Booking> {
+  async submitRating(
+    id: string,
+    ratingData: Omit<Rating, 'createdAt' | 'updatedAt'>,
+    uid: string,
+  ): Promise<Booking> {
     try {
       console.log(`Submitting rating for booking ID: ${id}, user: ${uid}`);
       const doc = await this.firebaseService.getDocument(this.collection, id);
       const data = await doc.get();
-      
+
       if (!data.exists) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
 
       const docData = data.data() as BookingData;
       if (docData.uid !== uid) {
-        throw new ForbiddenException('Only the customer who made the booking can submit a rating');
+        throw new ForbiddenException(
+          'Only the customer who made the booking can submit a rating',
+        );
       }
 
       if (docData.status !== 'confirmed') {
@@ -425,10 +537,17 @@ export class BookingsService {
         updatedAt: now,
       };
 
-      await this.firebaseService.updateDocument(this.collection, id, updateData);
+      await this.firebaseService.updateDocument(
+        this.collection,
+        id,
+        updateData,
+      );
 
       // Fetch and return the updated booking
-      const updatedDoc = await this.firebaseService.getDocument(this.collection, id);
+      const updatedDoc = await this.firebaseService.getDocument(
+        this.collection,
+        id,
+      );
       const updatedData = await updatedDoc.get();
       const updatedDocData = updatedData.data() as BookingData;
 
@@ -440,10 +559,13 @@ export class BookingsService {
       } as Booking;
     } catch (error) {
       console.error('Error submitting rating:', error);
-      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to submit rating');
     }
   }
-} 
+}

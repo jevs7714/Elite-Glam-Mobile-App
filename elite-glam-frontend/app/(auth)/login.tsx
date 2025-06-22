@@ -1,4 +1,14 @@
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native'
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native'
 import React, { useState } from 'react'
 import FormField from '../../components/FormField'
 import { router, Href } from 'expo-router'
@@ -22,6 +32,7 @@ interface UserData {
   username: string
   email: string
   profile: Record<string, any>
+  role: string
 }
 
 interface LoginResponse {
@@ -100,14 +111,15 @@ const Login = () => {
         username: response.user.username,
         email: response.user.email,
         profile: response.user.profile || {},
+        role: response.user.role,
       };
       
       // Store the token and user data
       await AsyncStorage.setItem('userToken', response.token)
       await AsyncStorage.setItem('userData', JSON.stringify(userData))
       
-      // Redirect to home
-      router.replace('/(tabs)' as Href<any>)
+      // Redirect to home with a parameter to trigger a refresh
+      router.replace({ pathname: '/(tabs)', params: { loginSuccess: 'true' } } as Href<any>)
     } catch (error: any) {
       console.error('Login error:', error)
       
@@ -129,129 +141,169 @@ const Login = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome back</Text>
-      <Text style={styles.subtitle}>Sign in to your account</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.keyboardAvoidingContainer}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.container}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Sign in to your account</Text>
 
-      {errors.submit && (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={20} color="#ff4444" />
-          <Text style={styles.errorText}>{errors.submit}</Text>
-        </View>
-      )}
-
-      <View style={styles.form}>
-        <FormField
-          label="Email Address"
-          value={formData.email}
-          onChangeText={handleChange('email')}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          error={errors.email}
-        />
-        
-        <FormField
-          label="Password"
-          value={formData.password}
-          onChangeText={handleChange('password')}
-          secureTextEntry={!showPassword}
-          showPassword={showPassword}
-          togglePassword={() => setShowPassword(!showPassword)}
-          error={errors.password}
-        />
-
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.signInText}>Sign In</Text>
+          {errors.submit && (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={20} color="#ff4444" />
+              <Text style={styles.errorText}>{errors.submit}</Text>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => router.push('/register' as Href<any>)}>
-            <Text style={styles.registerLink}>Sign up</Text>
-          </TouchableOpacity>
+          <View style={styles.form}>
+            <FormField
+              label="Email Address"
+              value={formData.email}
+              onChangeText={handleChange('email')}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={errors.email}
+            />
+            
+            <FormField
+              label="Password"
+              value={formData.password}
+              onChangeText={handleChange('password')}
+              secureTextEntry={!showPassword}
+              showPassword={showPassword}
+              togglePassword={() => setShowPassword(!showPassword)}
+              error={errors.password}
+            />
+
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.signInText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/register' as Href<any>)}>
+                <Text style={styles.registerLink}>Sign up</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     padding: 24,
     backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 180,
+    height: 90,
+    marginBottom: 30,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 32,
+    marginBottom: 25,
+    textAlign: 'center',
   },
   form: {
+    width: '100%',
     marginTop: 24,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFEBEE',
-    padding: 12,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 20,
+    width: '100%',
   },
   errorText: {
-    color: '#ff4444',
-    fontSize: 14,
+    color: '#B71C1C',
     marginLeft: 8,
-    flex: 1,
+    fontSize: 14,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginTop: 8,
+    marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#6B4EFF',
+    color: '#7E57C2',
     fontSize: 14,
   },
   signInButton: {
     backgroundColor: '#7E57C2',
-    padding: 16,
+    paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   signInButtonDisabled: {
-    opacity: 0.7,
+    backgroundColor: '#B092DD',
   },
   signInText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
   },
   registerText: {
+    fontSize: 14,
     color: '#666',
   },
   registerLink: {
+    fontSize: 14,
     color: '#7E57C2',
+    fontWeight: 'bold',
   },
 })
 
