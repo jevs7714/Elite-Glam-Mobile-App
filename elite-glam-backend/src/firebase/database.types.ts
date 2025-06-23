@@ -1,9 +1,9 @@
 // Define types for our database collections
 export interface UserRecord {
-  uid: string;          // Firebase Auth UID
+  uid: string; // Firebase Auth UID
   username: string;
   email: string;
-  role?: 'admin' | 'customer';  // User role
+  role?: 'admin' | 'customer' | 'shop_owner'; // User role
   createdAt: Date;
   updatedAt: Date;
   profile?: {
@@ -27,6 +27,7 @@ export interface CreateUserInput {
   username: string;
   email: string;
   password: string;
+  role: 'admin' | 'customer' | 'shop_owner'; // Add role here
 }
 
 // Type for user response (excludes sensitive data)
@@ -44,4 +45,4 @@ export interface UserResponse {
 // Type for authentication response (includes custom token)
 export interface AuthResponse extends UserRecord {
   customToken: string;
-} 
+}

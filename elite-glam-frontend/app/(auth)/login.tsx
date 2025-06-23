@@ -32,6 +32,7 @@ interface UserData {
   username: string
   email: string
   profile: Record<string, any>
+  role: string
 }
 
 interface LoginResponse {
@@ -110,14 +111,15 @@ const Login = () => {
         username: response.user.username,
         email: response.user.email,
         profile: response.user.profile || {},
+        role: response.user.role,
       };
       
       // Store the token and user data
       await AsyncStorage.setItem('userToken', response.token)
       await AsyncStorage.setItem('userData', JSON.stringify(userData))
       
-      // Redirect to home
-      router.replace('/(tabs)' as Href<any>)
+      // Redirect to home with a parameter to trigger a refresh
+      router.replace({ pathname: '/(tabs)', params: { loginSuccess: 'true' } } as Href<any>)
     } catch (error: any) {
       console.error('Login error:', error)
       

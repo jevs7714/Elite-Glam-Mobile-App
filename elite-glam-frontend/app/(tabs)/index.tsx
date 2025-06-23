@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { MaterialIcons, FontAwesome } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import {
   productsService,
   Product as CategoryProduct,
@@ -21,6 +21,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../../services/api";
 import FilterModal, { Filters } from "../components/FilterModal";
+import ShopOwnerHome from "../components/ShopOwnerHome";
 
 // Constants for category products
 const CATEGORY_ITEMS_PER_PAGE = 8;
@@ -73,6 +74,10 @@ interface SearchCacheData {
 }
 
 export default function HomeScreen() {
+  const { loginSuccess } = useLocalSearchParams<{ loginSuccess?: string }>();
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
+
   const categoryScrollRef = useRef<ScrollView>(null);
   const categoryButtonLayouts = useRef(
     new Map<string, { x: number; width: number }>()
@@ -265,16 +270,94 @@ export default function HomeScreen() {
     );
   }, [activeFilters]);
 
+  // Consolidated function to check user role
+  const checkUserRole = useCallback(async () => {
+    setIsRoleLoading(true);
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+
+      // If no token, assume guest or logged-out state. Default to customer view.
+      if (!token) {
+        setUserRole("customer"); // Default to customer view for guests
+        console.log("No token found, setting role to customer.");
+        return;
+      }
+
+      // If token exists, fetch fresh user data from API
+      const response = await api.get("/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data && response.data.role) {
+        const role = response.data.role;
+        console.log("Fetched user role from API:", role);
+        setUserRole(role);
+
+        // Update the userData in AsyncStorage to keep it in sync
+        const storedData = await AsyncStorage.getItem("userData");
+        const storedUserData = storedData ? JSON.parse(storedData) : {};
+        const updatedUserData = { ...storedUserData, ...response.data };
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+      } else {
+        // Fallback to storage if API response is incomplete
+        console.log(
+          "API response incomplete, falling back to storage for role."
+        );
+        const userDataString = await AsyncStorage.getItem("userData");
+        const userData = userDataString ? JSON.parse(userDataString) : null;
+        setUserRole(userData?.role || "customer"); // Default to customer
+      }
+    } catch (error) {
+      console.error(
+        "Failed to fetch user role from API, falling back to storage:",
+        error
+      );
+      // Fallback to storage on API error
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        const userData = userDataString ? JSON.parse(userDataString) : null;
+        setUserRole(userData?.role || "customer"); // Default to customer
+        console.log("Fell back to role from storage:", userData?.role);
+      } catch (storageError) {
+        console.error("Failed to read user role from storage:", storageError);
+        setUserRole("customer"); // Ultimate fallback
+      }
+    } finally {
+      setIsRoleLoading(false);
+    }
+  }, []);
+
+  // Effect to check the user role whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
-      // Re-fetch category products on focus if not actively searching
-      if (!isSearchActive) {
-        fetchCategoryProducts(activeFilters, 1, true);
-      }
-      // Load search history on focus as well
-      loadSearchHistory();
-    }, [isSearchActive, activeFilters])
+      checkUserRole();
+    }, [checkUserRole])
   );
+
+  // Effect to specifically handle the refresh after login
+  useEffect(() => {
+    if (loginSuccess === "true") {
+      checkUserRole();
+    }
+  }, [loginSuccess, checkUserRole]);
+
+  // Effect to fetch data based on the user's role
+  useEffect(() => {
+    // Wait until the role check is complete
+    if (isRoleLoading) {
+      return;
+    }
+
+    // If the user is a customer, fetch products
+    if (userRole !== "shop_owner" && !isSearchActive) {
+      fetchCategoryProducts(activeFilters, 1, true);
+    }
+
+    // Load search history for all users
+    loadSearchHistory();
+  }, [userRole, isRoleLoading, isSearchActive, activeFilters]);
 
   // --- Search Functionality Logic ---
   const loadSearchFromCache = async (
@@ -504,6 +587,22 @@ export default function HomeScreen() {
   );
 
   // --- Render Logic ---
+  // Check role loading first - this is the most important condition
+  if (isRoleLoading || userRole === null) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Once role is determined, show appropriate view
+  if (userRole === "shop_owner") {
+    return <ShopOwnerHome />;
+  }
+
+  // For customers, check if products are loading
   if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive) {
     return (
       <View style={styles.loadingContainer}>
@@ -634,7 +733,9 @@ export default function HomeScreen() {
                   >
                     <Image
                       source={
-                        product.image
+                        product.image && product.image.length > 0
+                          ? { uri: product.image[0] }
+                          : product.image
                           ? { uri: product.image }
                           : defaultProductImage
                       }
@@ -707,7 +808,9 @@ export default function HomeScreen() {
                     >
                       <Image
                         source={
-                          product.image
+                          product.images && product.images.length > 0
+                            ? { uri: product.images[0] }
+                            : product.image
                             ? { uri: product.image }
                             : defaultProductImage
                         }

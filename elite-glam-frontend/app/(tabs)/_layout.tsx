@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, useFocusEffect } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   TouchableOpacity,
@@ -8,11 +8,14 @@ import {
   Image,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "../../services/api";
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -62,7 +65,17 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
 });
+
+interface UserData {
+  role?: "customer" | "shop_owner";
+}
 
 const CustomHeaderTitle = () => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -98,24 +111,99 @@ const CustomHeaderTitle = () => {
           <Text style={styles.brandLam}>lam</Text>
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.iconButton}
-        onPress={() => router.push("/(tabs)/notifications")}
-      >
-        <MaterialIcons name="notifications" size={24} color="#fff" />
-        {unreadCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {unreadCount > 99 ? "99+" : unreadCount.toString()}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
     </View>
   );
 };
 
 export default function TabsLayout() {
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [notificationCount, setNotificationCount] = useState(0);
+
+  const loadUserData = useCallback(async () => {
+    // Do not set loading to true on every focus, only on initial load.
+    // The isLoading state is handled by the initial useState(true).
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        setUserData(null); // Guest user
+        return;
+      }
+
+      // If token exists, fetch fresh user data from API
+      const response = await api.get("/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data) {
+        // Update AsyncStorage to keep it in sync
+        const storedData = await AsyncStorage.getItem("userData");
+        const storedUserData = storedData ? JSON.parse(storedData) : {};
+        const updatedUserData = { ...storedUserData, ...response.data };
+        await AsyncStorage.setItem("userData", JSON.stringify(updatedUserData));
+
+        // Set state to trigger re-render
+        setUserData(updatedUserData);
+      } else {
+        // Fallback to whatever is in storage if API fails
+        const userDataString = await AsyncStorage.getItem("userData");
+        setUserData(userDataString ? JSON.parse(userDataString) : null);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to fetch user data for layout, falling back to storage:",
+        error
+      );
+      try {
+        const userDataString = await AsyncStorage.getItem("userData");
+        setUserData(userDataString ? JSON.parse(userDataString) : null);
+      } catch (storageError) {
+        console.error(
+          "Failed to read user data from storage for layout:",
+          storageError
+        );
+        setUserData(null); // Ultimate fallback
+      }
+    } finally {
+      // Ensure loading is turned off after the first load.
+      if (isLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, [isLoading]); // Depend on isLoading to run this once initially
+
+  const fetchNotificationCount = useCallback(async () => {
+    try {
+      const notifications = await notificationsService.getNotifications();
+      const unreadCount = notifications.filter((n) => !n.isRead).length;
+      setNotificationCount(unreadCount);
+    } catch (error) {
+      console.error("Failed to fetch notification count for layout:", error);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+      fetchNotificationCount();
+    }, [loadUserData, fetchNotificationCount])
+  );
+
+  if (isLoading) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView
+          style={styles.loadingContainer}
+          edges={["bottom", "left", "right"]}
+        >
+          <ActivityIndicator size="large" color="#7E57C2" />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
+  const isShopOwner = userData?.role === "shop_owner";
+
   return (
     <SafeAreaProvider>
       <SafeAreaView
@@ -160,13 +248,29 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
-            name="rent-later"
+            name="manage"
+            options={{
+              title: "Manage",
+              headerTitle: "Manage Products",
+              tabBarIcon: ({ color, size }) => (
+                <MaterialIcons name="store" size={size} color={color} />
+              ),
+              href: isShopOwner ? "/manage" : null,
+            }}
+          />
+          <Tabs.Screen
+            name="my-cart"
             options={{
               title: "My Cart",
               headerTitle: "My Cart",
               tabBarIcon: ({ color, size }) => (
-                <MaterialIcons name="shopping-cart" size={size} color={color} />
+                <MaterialIcons
+                  name="shopping-cart"
+                  size={size}
+                  color={color}
+                />
               ),
+              href: !isShopOwner ? "/my-cart" : null,
             }}
           />
           <Tabs.Screen
@@ -177,6 +281,7 @@ export default function TabsLayout() {
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="notifications" size={size} color={color} />
               ),
+              tabBarBadge: notificationCount > 0 ? notificationCount : undefined,
             }}
           />
           <Tabs.Screen
@@ -188,6 +293,7 @@ export default function TabsLayout() {
               ),
             }}
           />
+
           <Tabs.Screen
             name="edit-profile"
             options={{

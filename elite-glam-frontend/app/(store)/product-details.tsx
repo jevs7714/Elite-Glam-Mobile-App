@@ -721,7 +721,14 @@ const ProductDetails = () => {
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => router.push(`/(store)/product-details?id=${item.id}`)} style={styles.sameShopProductCard}>
-              <Image source={{ uri: item.image }} style={styles.sameShopProductImage} />
+              <Image 
+                source={{
+                  uri: (item.images && item.images.length > 0)
+                    ? item.images[0]
+                    : item.image
+                }} 
+                style={styles.sameShopProductImage} 
+              />
               <Text style={styles.sameShopProductName} numberOfLines={2}>{item.name}</Text>
               {(item.rating || 0) > 0 && (
                 <View style={styles.sameShopProductRatingContainer}>

@@ -39,7 +39,7 @@ const STATUS_ICONS = {
   rejected: "close" as const,
 } as const;
 
-export default function OrdersScreen() {
+export default function ShopOwnerHome() {
   const [orders, setOrders] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -56,10 +56,10 @@ export default function OrdersScreen() {
     const loadUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem("userData");
-        console.log("Loaded user data:", userData); // Debug log
+        console.log("Loaded user data:", userData); 
         if (userData) {
           const parsedData = JSON.parse(userData);
-          console.log("Parsed user data:", parsedData); // Debug log
+          console.log("Parsed user data:", parsedData); 
           if (parsedData.uid) {
             setCurrentUser(parsedData.uid);
           } else {
@@ -100,7 +100,7 @@ export default function OrdersScreen() {
     shouldRefresh: boolean = false
   ) => {
     try {
-      console.log("Fetching orders for user:", currentUser); // Debug log
+      console.log("Fetching orders for user:", currentUser); 
 
       if (!currentUser) {
         console.error("No current user found");
@@ -115,7 +115,7 @@ export default function OrdersScreen() {
 
       setIsLoadingMore(true);
       const data = await bookingService.getSellerBookings();
-      console.log("Fetched orders data:", data); // Debug log
+      console.log("Fetched orders data:", data); 
 
       if (!data || !Array.isArray(data)) {
         console.error("Invalid data received:", data);
@@ -240,9 +240,6 @@ export default function OrdersScreen() {
                   return order;
                 });
               });
-
-              // Also refresh the list to ensure consistency with the server
-              fetchOrders();
             } catch (error) {
               console.error("Error updating order status:", error);
               Alert.alert("Error", "Failed to update order status");
@@ -398,38 +395,34 @@ export default function OrdersScreen() {
           </View>
         </View>
       </View>
+
+      {/* Action Buttons */}
+      {order.status === "pending" && (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.confirmButton]}
+            onPress={() => handleStatusUpdate(order.id, "confirmed")}
+          >
+            <MaterialIcons name="check" size={18} color="white" />
+            <Text style={styles.actionButtonText}>Confirm</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.rejectButton]}
+            onPress={() => handleStatusUpdate(order.id, "rejected")}
+          >
+            <MaterialIcons name="close" size={18} color="white" />
+            <Text style={styles.actionButtonText}>Reject</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#6B4EFF" />
-        <Text style={styles.loadingText}>Loading orders...</Text>
-      </View>
-    );
-  }
-
-  if (orders.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <MaterialIcons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Orders Management</Text>
-        </View>
-
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="receipt-long" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No orders found</Text>
-          <Text style={styles.emptySubtext}>
-            When you receive orders, they will appear here
-          </Text>
-        </View>
+        <Text style={styles.loadingText}>Loading Orders...</Text>
       </View>
     );
   }
@@ -437,38 +430,47 @@ export default function OrdersScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Orders Management</Text>
+        <Text style={styles.headerTitle}>Manage Orders</Text>
       </View>
 
       <View style={styles.searchContainer}>
-        <MaterialIcons name="search" size={24} color="#666" />
+        <MaterialIcons
+          name="search"
+          size={24}
+          color="#999"
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search orders..."
+          placeholder="Search by customer, service, or order ID..."
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholderTextColor="#999"
         />
       </View>
 
       {renderStatusFilter()}
 
-      <FlatList
-        data={filteredOrders}
-        renderItem={renderOrderItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        onRefresh={() => fetchOrders(1, true)}
-        refreshing={refreshing}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-      />
+      {filteredOrders.length === 0 ? (
+        <View style={styles.centeredContainer}>
+          <MaterialIcons name="inbox" size={64} color="#ccc" />
+          <Text style={styles.noOrdersText}>
+            No orders found for the selected criteria.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          renderItem={renderOrderItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          onRefresh={() => fetchOrders(1, true)}
+          refreshing={refreshing}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+        />
+      )}
     </View>
   );
 }
@@ -478,92 +480,112 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-  header: {
-    flexDirection: "row",
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    padding: 16,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
+  },
+  noOrdersText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
+  header: {
     backgroundColor: "white",
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#eee",
+    alignItems: "center",
   },
-  backButton: {
-    marginRight: 16,
-  },
-  title: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 22,
     fontWeight: "bold",
     color: "#333",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
     backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderRadius: 8,
+    margin: 16,
+    paddingHorizontal: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 8,
+    height: 48,
     fontSize: 16,
     color: "#333",
   },
   filterContainer: {
     flexDirection: "row",
-    padding: 12,
+    justifyContent: "space-around",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   filterButton: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 20,
-    marginRight: 8,
     borderWidth: 1,
+    borderColor: "#ddd",
   },
   filterButtonActive: {
-    borderColor: "transparent",
+    borderWidth: 0,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   filterText: {
-    marginLeft: 4,
+    marginLeft: 6,
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   listContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   orderCard: {
     backgroundColor: "white",
-    borderRadius: 16,
+    borderRadius: 12,
     marginBottom: 16,
-    overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    overflow: Platform.OS === "android" ? "hidden" : "visible",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   orderContent: {
     flexDirection: "row",
-    padding: 16,
+    padding: 12,
   },
   imageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 8,
     overflow: "hidden",
-    marginRight: 16,
-    backgroundColor: "#f5f5f5",
+    marginRight: 12,
+    backgroundColor: "#f0f0f0",
   },
   productImage: {
     width: "100%",
@@ -572,102 +594,99 @@ const styles = StyleSheet.create({
   noImageContainer: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#f5f5f5",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#e9ecef",
   },
   orderInfo: {
     flex: 1,
-    justifyContent: "space-between",
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   serviceName: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "bold",
     color: "#333",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   customerInfo: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
   },
   customerName: {
     fontSize: 14,
-    color: "#666",
+    color: "#555",
+    marginLeft: 4,
+    flexShrink: 1,
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignSelf: "flex-start",
   },
   statusText: {
     color: "white",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "bold",
     marginLeft: 4,
   },
   detailsContainer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    marginTop: 4,
   },
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 4,
   },
   detailText: {
     fontSize: 13,
     color: "#666",
-    marginLeft: 6,
+    marginLeft: 8,
   },
-  loadingContainer: {
+  actionButtonsContainer: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  actionButton: {
     flex: 1,
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    paddingVertical: 12,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#666",
+  actionButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 6,
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50",
+  },
+  rejectButton: {
+    backgroundColor: "#F44336",
   },
   loadingMoreContainer: {
     paddingVertical: 20,
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
   },
   loadingMoreText: {
-    marginTop: 8,
+    marginLeft: 10,
+    color: "#666",
     fontSize: 14,
-    color: "#666",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    marginTop: 8,
   },
 });

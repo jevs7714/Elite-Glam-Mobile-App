@@ -174,7 +174,11 @@ const YouMightAlsoLike: React.FC<YouMightAlsoLikeProps> = ({
             style={styles.productCard}
           >
             <Image
-              source={{ uri: item.image }}
+              source={{
+                uri: (item.images && item.images.length > 0)
+                  ? item.images[0]
+                  : item.image
+              }}
               style={styles.productImage}
               defaultSource={require("../../assets/images/dressProduct.png")}
             />
