@@ -58,7 +58,7 @@ const getBaseUrl = async () => {
     }
   }
   // Production URL
-  return 'https://elite-glam-backend.onrender.com';
+  return 'https://elite-glam-mobile-app.onrender.com';
 };
 
 // Log the environment and platform
