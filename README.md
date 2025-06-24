@@ -115,7 +115,7 @@ elite-glam-frontend/
   - Android: `http://10.0.2.2:3001`
   - iOS: `http://localhost:3001`
   - Web: `http://localhost:3001`
-- Production: `https://elite-glam-backend.onrender.com`
+- Production: `https://elite-glam-mobile-app.onrender.com`
 
 ### Key Endpoints
 - Authentication: `/auth/*`
