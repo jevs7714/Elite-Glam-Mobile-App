@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Switch,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -45,10 +46,14 @@ const ConfirmBooking = () => {
   const [sellerLocation, setSellerLocation] = useState('Location not available');
   const [productImage, setProductImage] = useState<string | undefined>(undefined);
   const [ownerUsername, setOwnerUsername] = useState<string | undefined>(undefined);
+  const [includeMakeup, setIncludeMakeup] = useState(false);
   
   // Parse the price from URL params or use default
-  const price = productPrice ? parseFloat(productPrice.toString()) : 5999;
-  const formattedPrice = price.toLocaleString();
+  const basePrice = productPrice ? parseFloat(productPrice.toString()) : 5999;
+  const makeupServicePrice = 1500; // Define the price for the makeup service
+
+  const totalPrice = includeMakeup ? basePrice + makeupServicePrice : basePrice;
+  const formattedPrice = totalPrice.toLocaleString();
 
   // Get current month and year
   const currentMonth = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -119,7 +124,7 @@ const ConfirmBooking = () => {
         date: eventDate,
         time: eventTime,
         status: 'pending' as const,
-        price: price,
+        price: totalPrice,
         notes: '', // Empty notes field since we're using eventLocation
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -132,7 +137,8 @@ const ConfirmBooking = () => {
         eventType,
         fittingTime,
         fittingTimePeriod,
-        eventLocation
+        eventLocation,
+        includeMakeup
       };
 
       console.log('Creating booking with data:', {
@@ -343,7 +349,7 @@ const ConfirmBooking = () => {
                     styles.timePeriodText,
                     fittingTimePeriod === 'PM' && styles.timePeriodTextActive
                   ]}>PM</Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -433,6 +439,24 @@ const ConfirmBooking = () => {
           </View>
         </View>
 
+        <TouchableOpacity
+            style={styles.makeupServiceContainer}
+            onPress={() => setIncludeMakeup(!includeMakeup)}
+          >
+            <View style={styles.makeupServiceContent}>
+              <Ionicons name="color-palette-outline" size={24} color="#6B46C1" />
+              <View style={styles.makeupServiceTextContainer}>
+                <Text style={styles.makeupServiceTitle}>Add Makeup Service</Text>
+                <Text style={styles.makeupServicePrice}>+ ₱{makeupServicePrice.toLocaleString()}</Text>
+              </View>
+            </View>
+            <Ionicons 
+              name={includeMakeup ? "checkmark-circle" : "ellipse-outline"} 
+              size={24} 
+              color={includeMakeup ? "#6B46C1" : "#ccc"} 
+            />
+        </TouchableOpacity>
+
         {/* Booking Summary */}
         <View style={styles.summaryContainer}>
           <Text style={styles.sectionTitle}>Booking Summary</Text>
@@ -441,6 +465,13 @@ const ConfirmBooking = () => {
             <Text style={styles.summaryLabel}>Service</Text>
             <Text style={styles.summaryValue}>{productName}</Text>
           </View>
+
+          {includeMakeup && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Makeup Service</Text>
+              <Text style={styles.summaryValue}>₱{makeupServicePrice.toLocaleString()}</Text>
+            </View>
+          )}
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Product ID</Text>
@@ -530,7 +561,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingTop: Platform.OS === 'ios' ? 60 : 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -548,11 +579,13 @@ const styles = StyleSheet.create({
   },
   productInfoContainer: {
     backgroundColor: '#fff',
-    padding: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     marginBottom: 8,
   },
   productName: {
     fontSize: 16,
+    paddingHorizontal: 8,
     fontWeight: '500',
     color: '#333',
   },
@@ -564,6 +597,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
+    paddingHorizontal: 8,
     marginBottom: 16,
   },
   calendarHeader: {
@@ -612,6 +646,34 @@ const styles = StyleSheet.create({
   },
   eventDetailRow: {
     marginBottom: 16,
+  },
+  makeupServiceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F3E8FF',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#DCDCDC',
+  },
+  makeupServiceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  makeupServiceTextContainer: {
+    marginLeft: 12,
+  },
+  makeupServiceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  makeupServicePrice: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
   },
   eventDetailLabel: {
     fontSize: 14,
