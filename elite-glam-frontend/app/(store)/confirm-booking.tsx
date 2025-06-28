@@ -47,6 +47,7 @@ const ConfirmBooking = () => {
   const [productImage, setProductImage] = useState<string | undefined>(undefined);
   const [ownerUsername, setOwnerUsername] = useState<string | undefined>(undefined);
   const [includeMakeup, setIncludeMakeup] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
   
   // Parse the price from URL params or use default
   const basePrice = productPrice ? parseFloat(productPrice.toString()) : 5999;
@@ -257,6 +258,34 @@ const ConfirmBooking = () => {
           <View style={styles.productInfoContainer}>
             <Text style={styles.sectionTitle}>Product</Text>
             <Text style={styles.productName}>{productName}</Text>
+
+            <View style={styles.sizeSelectorContainer}>
+              <View style={styles.sizeSelectorHeader}>
+                <Ionicons name="shirt-outline" size={22} color="#4A5568" />
+                <Text style={styles.sizeSelectorTitle}>Select Size</Text>
+              </View>
+              <View style={styles.sizeOptionsContainer}>
+                {['S', 'M', 'L', 'XL'].map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.sizeOption,
+                      selectedSize === size && styles.sizeOptionSelected,
+                    ]}
+                    onPress={() => setSelectedSize(size)}
+                  >
+                    <Text
+                      style={[
+                        styles.sizeOptionText,
+                        selectedSize === size && styles.sizeOptionTextSelected,
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </View>
         )}
 
@@ -773,6 +802,52 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
+    color: '#6B46C1',
+  },
+  sizeSelectorContainer: {
+    marginTop: 16,
+    backgroundColor: '#F7FAFC',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sizeSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sizeSelectorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginLeft: 8,
+  },
+  sizeOptionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sizeOption: {
+    minWidth: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+  },
+  sizeOptionSelected: {
+    backgroundColor: '#E9D8FD',
+    borderColor: '#9F7AEA',
+  },
+  sizeOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+  },
+  sizeOptionTextSelected: {
     color: '#6B46C1',
   },
   fittingTimeContainer: {
