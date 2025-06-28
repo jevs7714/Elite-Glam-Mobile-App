@@ -234,6 +234,49 @@ const Register = () => {
           )}
 
           <View style={styles.form}>
+            {/* Role Selection */}
+            <View style={styles.roleSelectionContainer}>
+              <Text style={styles.roleLabel}>I am a:</Text>
+              <View style={styles.roleOptionsContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.roleOptionButton,
+                    formData.role === "customer" && styles.roleOptionButtonSelected,
+                  ]}
+                  onPress={() => handleChange("role")("customer")}
+                >
+                  <Text
+                    style={[
+                      styles.roleOptionText,
+                      formData.role === "customer" &&
+                        styles.roleOptionTextSelected,
+                    ]}
+                  >
+                    Customer
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.roleOptionButton,
+                    formData.role === "shop_owner" &&
+                      styles.roleOptionButtonSelected,
+                  ]}
+                  onPress={() => handleChange("role")("shop_owner")}
+                >
+                  <Text
+                    style={[
+                      styles.roleOptionText,
+                      formData.role === "shop_owner" &&
+                        styles.roleOptionTextSelected,
+                    ]}
+                  >
+                    Shop Owner
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {errors.role && <Text style={styles.roleErrorText}>{errors.role}</Text>}
+            </View>
+
             <FormField
               label="First Name"
               value={formData.firstName}
@@ -329,49 +372,6 @@ const Register = () => {
               togglePassword={() => setShowPassword(!showPassword)}
               error={errors.passwordConfirm}
             />
-
-            {/* Role Selection */}
-            <View style={styles.roleSelectionContainer}>
-              <Text style={styles.roleLabel}>I am a:</Text>
-              <View style={styles.roleOptionsContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOptionButton,
-                    formData.role === "customer" && styles.roleOptionButtonSelected,
-                  ]}
-                  onPress={() => handleChange("role")("customer")}
-                >
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      formData.role === "customer" &&
-                        styles.roleOptionTextSelected,
-                    ]}
-                  >
-                    Customer
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.roleOptionButton,
-                    formData.role === "shop_owner" &&
-                      styles.roleOptionButtonSelected,
-                  ]}
-                  onPress={() => handleChange("role")("shop_owner")}
-                >
-                  <Text
-                    style={[
-                      styles.roleOptionText,
-                      formData.role === "shop_owner" &&
-                        styles.roleOptionTextSelected,
-                    ]}
-                  >
-                    Shop Owner
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              {errors.role && <Text style={styles.roleErrorText}>{errors.role}</Text>}
-            </View>
 
             <TouchableOpacity
               style={[

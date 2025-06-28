@@ -10,9 +10,9 @@ const API_URLS = {
     web: 'http://localhost:3001',
   },
   production: {
-    android: 'https://elite-glam-backend.onrender.com',
-    ios: 'https://elite-glam-backend.onrender.com',
-    web: 'https://elite-glam-backend.onrender.com',
+    android: 'https://elite-glam-mobile-app.onrender.com',
+    ios: 'https://elite-glam-mobile-app.onrender.com',
+    web: 'https://elite-glam-mobile-app.onrender.com',
   },
 };
 

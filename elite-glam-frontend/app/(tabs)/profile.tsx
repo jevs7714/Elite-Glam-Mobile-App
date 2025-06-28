@@ -202,14 +202,6 @@ export default function ProfileScreen() {
             <Text style={styles.menuText}>Edit Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/(tabs)/notifications")}
-          >
-            <MaterialIcons name="notifications" size={24} color="#333" />
-            <Text style={styles.menuText}>Notifications</Text>
-          </TouchableOpacity>
-
           {/* Conditional Rendering for My Store / Rent Status */}
           {userData?.role === "shop_owner" && (
             <TouchableOpacity
@@ -230,20 +222,6 @@ export default function ProfileScreen() {
               <Text style={styles.menuText}>Rent Status</Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() =>
-              Alert.alert(
-                "Coming Soon",
-                "Settings feature is under development. Stay tuned!",
-                [{ text: "OK" }]
-              )
-            }
-          >
-            <MaterialIcons name="settings" size={24} color="#333" />
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.menuItem, styles.logoutButton]}
