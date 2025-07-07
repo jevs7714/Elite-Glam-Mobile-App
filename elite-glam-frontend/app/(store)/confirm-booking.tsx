@@ -10,7 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Switch,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -39,6 +40,9 @@ const ConfirmBooking = () => {
   const [eventTime, setEventTime] = useState('16:58');
   const [eventTimePeriod, setEventTimePeriod] = useState('PM');
   const [eventType, setEventType] = useState('');
+  const [otherEventType, setOtherEventType] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const eventOptions = ['Wedding', 'Birthday', 'Debut', 'Corporate Event', 'Others'];
   const [fittingTime, setFittingTime] = useState('10:00');
   const [fittingTimePeriod, setFittingTimePeriod] = useState('AM');
   const [eventLocation, setEventLocation] = useState('');
@@ -135,7 +139,7 @@ const ConfirmBooking = () => {
         sellerLocation,
         productImage,
         eventTimePeriod,
-        eventType,
+        eventType: eventType === 'Others' ? otherEventType : eventType,
         fittingTime,
         fittingTimePeriod,
         eventLocation,
@@ -345,7 +349,7 @@ const ConfirmBooking = () => {
 
           {/* Fitting Time Selection */}
           <View style={styles.fittingTimeContainer}>
-            <Text style={styles.fittingTimeLabel}>Time of Arrival</Text>
+            <Text style={styles.fittingTimeLabel}>Preferred Time of Arrival</Text>
             <View style={styles.fittingTimeInputContainer}>
               <TextInput 
                 style={styles.fittingTimeInput} 
@@ -391,17 +395,54 @@ const ConfirmBooking = () => {
           <View style={styles.eventDetailRow}>
             <Text style={styles.eventDetailLabel}>Type of Event</Text>
             <View style={styles.eventTypeInputContainer}>
-              <TextInput 
-                style={styles.eventTypeInput} 
-                placeholder="e.g., Wedding, Birthday, Debut"
-                placeholderTextColor="#999"
-                value={eventType}
-                onChangeText={setEventType}
-              />
-              <Ionicons name="calendar-outline" size={20} color="#666" />
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setIsDropdownOpen(true)}
+              >
+                <Text style={styles.dropdownButtonText}>
+                  {eventType || 'Select an event type'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
+
+              {eventType === 'Others' && (
+                <TextInput
+                  style={styles.eventTypeInput}
+                  placeholder="Please specify your event"
+                  placeholderTextColor="#999"
+                  value={otherEventType}
+                  onChangeText={setOtherEventType}
+                />
+              )}
             </View>
           </View>
           
+          <Modal
+            transparent={true}
+            visible={isDropdownOpen}
+            animationType="fade"
+            onRequestClose={() => setIsDropdownOpen(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setIsDropdownOpen(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.dropdownContainer}>
+                  {eventOptions.map((option, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.dropdownOption}
+                      onPress={() => {
+                        setEventType(option);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+
           <View style={styles.eventDetailRow}>
             <Text style={styles.eventDetailLabel}>Date of Event</Text>
             <View style={styles.eventDateInputContainer}>
@@ -525,7 +566,7 @@ const ConfirmBooking = () => {
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Time of Arrival</Text>
+            <Text style={styles.summaryLabel}>Preferred Time of Arrival</Text>
             <Text style={styles.summaryValue}>{fittingTime} {fittingTimePeriod}</Text>
           </View>
 
@@ -610,7 +651,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 8,
     paddingHorizontal: 4,
-    marginBottom: 8,
+     // Ensure enough space for all content
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    height: 50,
+    backgroundColor: '#FFF',
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  eventTypeInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#333',
+    height: 50,
+    marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    padding: 10,
+    width: width * 0.8,
+    maxHeight: 300,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    color: '#333',
   },
   productName: {
     fontSize: 16,
@@ -631,7 +725,7 @@ const styles = StyleSheet.create({
   },
   calendarHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -674,7 +768,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   eventDetailRow: {
-    marginBottom: 16,
+    marginBottom: 20,
+    zIndex: 1, // Ensure dropdown appears above other elements
   },
   makeupServiceContainer: {
     flexDirection: 'row',
@@ -710,18 +805,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   eventTypeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  eventTypeInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 16,
+    // This now acts as a simple container for the dropdown button
+    // and the conditional 'Others' text input.
   },
   eventDateInputContainer: {
     flexDirection: 'row',
@@ -853,6 +938,7 @@ const styles = StyleSheet.create({
   fittingTimeContainer: {
     marginTop: 16,
     paddingTop: 16,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
