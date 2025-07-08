@@ -14,7 +14,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { bookingService } from '../../services/booking.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { productsService } from '../../services/products.service';
@@ -52,12 +52,16 @@ const ConfirmBooking = () => {
   const [ownerUsername, setOwnerUsername] = useState<string | undefined>(undefined);
   const [includeMakeup, setIncludeMakeup] = useState(false);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [availableQuantity, setAvailableQuantity] = useState<number>(0);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
+  const [isLoadingProduct, setIsLoadingProduct] = useState<boolean>(true);
   
   // Parse the price from URL params or use default
   const basePrice = productPrice ? parseFloat(productPrice.toString()) : 5999;
   const makeupServicePrice = 1500; // Define the price for the makeup service
 
-  const totalPrice = includeMakeup ? basePrice + makeupServicePrice : basePrice;
+  const itemTotal = basePrice * selectedQuantity;
+  const totalPrice = includeMakeup ? itemTotal + makeupServicePrice : itemTotal;
   const formattedPrice = totalPrice.toLocaleString();
 
   // Get current month and year
@@ -101,6 +105,28 @@ const ConfirmBooking = () => {
   };
 
   const handleConfirmBooking = async () => {
+    // Validate size selection
+    if (!selectedSize) {
+      Alert.alert('Size Required', 'Please select a size before confirming your booking.');
+      return;
+    }
+
+    // Validate quantity selection
+    if (selectedQuantity < 1 || selectedQuantity > availableQuantity) {
+      Alert.alert('Invalid Quantity', `Please select between 1 and ${availableQuantity} items.`);
+      return;
+    }
+
+    if (availableQuantity === 0) {
+      Alert.alert('Out of Stock', 'This product is currently out of stock.');
+      return;
+    }
+
+    if (isLoadingProduct) {
+      Alert.alert('Loading', 'Please wait while we load product information.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -119,6 +145,11 @@ const ConfirmBooking = () => {
       const productData = await productsService.getProductById(productId.toString());
       if (!productData || !productData.userId) {
         throw new Error('Product data or owner information not found');
+      }
+
+      // Check if there's enough stock
+      if (productData.quantity < selectedQuantity) {
+        throw new Error(`Only ${productData.quantity} items available. Please reduce your quantity.`);
       }
 
       // Create booking data
@@ -143,7 +174,9 @@ const ConfirmBooking = () => {
         fittingTime,
         fittingTimePeriod,
         eventLocation,
-        includeMakeup
+        includeMakeup,
+        quantity: selectedQuantity,
+        selectedSize
       };
 
       console.log('Creating booking with data:', {
@@ -159,6 +192,32 @@ const ConfirmBooking = () => {
       // Submit booking using the api instance
       const response = await api.post('/bookings', bookingData);
       console.log('Booking created response:', response);
+
+      // Update product quantity after successful booking
+      try {
+        const newQuantity = productData.quantity - selectedQuantity;
+        console.log(`Attempting to update product quantity from ${productData.quantity} to ${newQuantity}`);
+        
+        await productsService.updateProductQuantity(productId.toString(), newQuantity);
+        console.log(`Product quantity updated successfully from ${productData.quantity} to ${newQuantity}`);
+        
+        // Update local state to reflect new quantity
+        setAvailableQuantity(newQuantity);
+      } catch (quantityError: any) {
+        console.error('Failed to update product quantity:', quantityError);
+        console.error('Quantity update error details:', {
+          message: quantityError.message,
+          status: quantityError.response?.status,
+          data: quantityError.response?.data
+        });
+        
+        // Show a warning but don't fail the booking
+        Alert.alert(
+          'Warning',
+          'Your booking was successful, but there was an issue updating the product quantity. Please contact support if you encounter any issues.',
+          [{ text: 'OK' }]
+        );
+      }
 
       Alert.alert(
         'Success',
@@ -189,11 +248,17 @@ const ConfirmBooking = () => {
   useEffect(() => {
     const fetchSellerLocation = async () => {
       try {
+        setIsLoadingProduct(true);
         if (productId) {
           console.log('Fetching product data for ID:', productId);
           // Get the product details to get seller's ID and image
           const productData = await productsService.getProductById(productId.toString());
           console.log('Fetched product:', productData);
+          
+          // Set available quantity
+          const quantity = productData?.quantity || 0;
+          setAvailableQuantity(quantity);
+          console.log('Product quantity loaded:', quantity);
           
           if (productData?.image) {
             setProductImage(productData.image);
@@ -238,7 +303,10 @@ const ConfirmBooking = () => {
       } catch (error) {
         console.error('Error fetching seller location:', error);
         setSellerLocation('Location not available');
+        setAvailableQuantity(0); // Set to 0 on error to prevent booking
         // Don't set ownerUsername on error to trigger the validation in handleConfirmBooking
+      } finally {
+        setIsLoadingProduct(false);
       }
     };
 
@@ -289,6 +357,61 @@ const ConfirmBooking = () => {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Quantity Selector */}
+            <View style={styles.quantitySelectorContainer}>
+              <View style={styles.quantitySelectorHeader}>
+                <MaterialIcons name="inventory" size={22} color="#4A5568" />
+                <Text style={styles.quantitySelectorTitle}>Quantity</Text>
+              </View>
+              <View style={styles.quantityControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    selectedQuantity <= 1 && styles.quantityButtonDisabled
+                  ]}
+                  onPress={() => setSelectedQuantity(Math.max(1, selectedQuantity - 1))}
+                  disabled={selectedQuantity <= 1}
+                >
+                  <AntDesign 
+                    name="minus" 
+                    size={18} 
+                    color={selectedQuantity <= 1 ? '#ccc' : '#4A5568'} 
+                  />
+                </TouchableOpacity>
+                
+                <View style={styles.quantityDisplay}>
+                  <Text style={styles.quantityValue}>{selectedQuantity}</Text>
+                </View>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    (selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct) && styles.quantityButtonDisabled
+                  ]}
+                  onPress={() => setSelectedQuantity(Math.min(availableQuantity, selectedQuantity + 1))}
+                  disabled={selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct}
+                >
+                  <AntDesign 
+                    name="plus" 
+                    size={18} 
+                    color={(selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct) ? '#ccc' : '#4A5568'} 
+                  />
+                </TouchableOpacity>
+              </View>
+              {isLoadingProduct ? (
+                <Text style={styles.availabilityText}>Loading availability...</Text>
+              ) : (
+                <>
+                  <Text style={styles.availabilityText}>
+                    Available: {availableQuantity} {availableQuantity === 1 ? 'item' : 'items'}
+                  </Text>
+                  {availableQuantity === 0 && (
+                    <Text style={styles.outOfStockText}>Out of Stock</Text>
+                  )}
+                </>
+              )}
             </View>
           </View>
         )}
@@ -536,6 +659,26 @@ const ConfirmBooking = () => {
             <Text style={styles.summaryValue}>{productName}</Text>
           </View>
 
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Size</Text>
+            <Text style={styles.summaryValue}>{selectedSize || 'Not selected'}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Quantity</Text>
+            <Text style={styles.summaryValue}>{selectedQuantity} {selectedQuantity === 1 ? 'item' : 'items'}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Price per item</Text>
+            <Text style={styles.summaryValue}>₱{basePrice.toLocaleString()}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Subtotal</Text>
+            <Text style={styles.summaryValue}>₱{itemTotal.toLocaleString()}</Text>
+          </View>
+
           {includeMakeup && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Makeup Service</Text>
@@ -604,14 +747,20 @@ const ConfirmBooking = () => {
 
           {/* Confirm Booking Button */}
           <TouchableOpacity 
-            style={[styles.confirmButton, isSubmitting && styles.confirmButtonDisabled]}
+            style={[
+              styles.confirmButton, 
+              (isSubmitting || availableQuantity === 0 || isLoadingProduct) && styles.confirmButtonDisabled
+            ]}
             onPress={handleConfirmBooking}
-            disabled={isSubmitting}
+            disabled={isSubmitting || availableQuantity === 0 || isLoadingProduct}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.confirmButtonText}>Confirm</Text>
+              <Text style={styles.confirmButtonText}>
+                {isLoadingProduct ? 'Loading...' : 
+                 availableQuantity === 0 ? 'Out of Stock' : 'Confirm Booking'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -1005,6 +1154,74 @@ const styles = StyleSheet.create({
   emptyDay: {
     width: width / 7,
     height: 40,
+  },
+  quantitySelectorContainer: {
+    marginTop: 16,
+    backgroundColor: '#F7FAFC',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  quantitySelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  quantitySelectorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginLeft: 8,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E2E8F0',
+  },
+  quantityDisplay: {
+    minWidth: 60,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  availabilityText: {
+    fontSize: 14,
+    color: '#4A5568',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  outOfStockText: {
+    fontSize: 14,
+    color: '#E53E3E',
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '600',
   },
 });
 

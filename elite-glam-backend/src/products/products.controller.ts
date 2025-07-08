@@ -173,6 +173,24 @@ export class ProductsController {
     }
   }
 
+  @Put(':id/quantity')
+  async updateQuantity(@Param('id') id: string, @Body() body: { quantity: number }) {
+    try {
+      console.log('Updating product quantity with ID:', id, 'New quantity:', body.quantity);
+      
+      if (typeof body.quantity !== 'number' || body.quantity < 0) {
+        throw new BadRequestException('Quantity must be a non-negative number');
+      }
+      
+      await this.productsService.updateQuantity(id, body.quantity);
+      console.log('Product quantity updated successfully');
+      return { message: 'Product quantity updated successfully' };
+    } catch (error) {
+      console.error('Error updating product quantity:', error);
+      throw error;
+    }
+  }
+
   @Delete(':id')
   async remove(@Param('id') id: string) {
     try {

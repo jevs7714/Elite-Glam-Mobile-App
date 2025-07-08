@@ -34,6 +34,9 @@ export interface Booking {
   eventLocation?: string;
   rating?: Rating;
   rejectionMessage?: string;
+  quantity?: number;  // Number of items being rented
+  includeMakeup?: boolean;
+  selectedSize?: string; // Selected size for the product
 }
 
 const checkAuth = async () => {
