@@ -52,6 +52,7 @@ interface CategoryCacheData {
 // Interface for category products with rating
 interface CategoryProductWithRating extends CategoryProduct {
   averageRating: number;
+  quantity: number;
 }
 
 // Interface for searched products (structure from former search.tsx)
@@ -66,6 +67,7 @@ interface SearchProduct {
   color: string[];
   available: boolean;
   averageRating?: number;
+  quantity: number;
 }
 
 // Interface for search result cache
@@ -172,6 +174,8 @@ export default function HomeScreen() {
     },
     staleTime: CATEGORY_CACHE_EXPIRY, // 5 minutes before refetching
     enabled: !isRoleLoading && userRole !== "shop_owner" && !isSearchActive,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const fetchProductRatings = async (productId: string): Promise<number> => {
@@ -193,6 +197,16 @@ export default function HomeScreen() {
 
   // Update UI state based on React Query results
   useEffect(() => {
+    console.log('Home screen state update:', {
+      categoryProductsData: categoryProductsData?.length,
+      isCategoryQueryLoading,
+      isCategoryQueryRefetching,
+      categoryQueryError: categoryQueryError?.message,
+      categoryPage,
+      isSearchActive,
+      userRole
+    });
+
     if (categoryProductsData) {
       if (categoryPage === 1 || isCategorySwitchLoading) {
         // Replace the entire array when refreshing or switching categories
@@ -310,7 +324,21 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       checkUserRole();
-    }, [checkUserRole])
+      // Reset search state when returning to home screen
+      setIsSearchActive(false);
+      setSearchQuery('');
+      setShowSearchHistory(false);
+      setSearchedProducts([]);
+      
+      // Force refetch products when returning to home screen
+      if (userRole === 'customer' || userRole === null) {
+        // Invalidate and refetch the query to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        setTimeout(() => {
+          refetchCategoryProducts();
+        }, 100);
+      }
+    }, [checkUserRole, refetchCategoryProducts, userRole])
   );
 
   // Effect to specifically handle the refresh after login
@@ -540,11 +568,23 @@ export default function HomeScreen() {
 
   // --- Render Logic ---
   // Check role loading first - this is the most important condition
-  if (isRoleLoading || userRole === null) {
+  if (isRoleLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6B4EFF" />
         <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // If role is still null after loading, default to customer
+  if (userRole === null) {
+    console.log('Role is null after loading, defaulting to customer');
+    setUserRole('customer');
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+        <Text style={styles.loadingText}>Setting up...</Text>
       </View>
     );
   }
@@ -554,8 +594,9 @@ export default function HomeScreen() {
     return <ShopOwnerHome />;
   }
 
-  // For customers, check if products are loading
-  if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive) {
+  // For customers, check if products are loading (only show loading if we have no data at all)
+  if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive && !categoryError) {
+    console.log('Showing loading screen for products');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4A148C" />
@@ -563,6 +604,14 @@ export default function HomeScreen() {
       </View>
     );
   }
+
+  console.log('Rendering main home screen:', {
+    userRole,
+    categoryProductsLength: categoryProducts.length,
+    isCategoryLoading,
+    isSearchActive,
+    categoryError
+  });
 
   return (
     <View style={styles.container}>
@@ -683,16 +732,23 @@ export default function HomeScreen() {
                     style={styles.productCard}
                     onPress={() => handleSearchedProductPress(product)}
                   >
-                    <Image
-                      source={
-                        product.image && product.image.length > 0
-                          ? { uri: product.image[0] }
-                          : product.image
-                          ? { uri: product.image }
-                          : defaultProductImage
-                      }
-                      style={styles.productImage}
-                    />
+                    <View style={{ position: 'relative' }}>
+                      <Image
+                        source={
+                          product.image && product.image.length > 0
+                            ? { uri: product.image[0] }
+                            : product.image
+                            ? { uri: product.image }
+                            : defaultProductImage
+                        }
+                        style={styles.productImage}
+                      />
+                      {(product as any).quantity === 0 && (
+                        <View style={styles.outOfStockOverlay}>
+                          <Text style={styles.outOfStockText}>Out of Stock</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.productInfo}>
                       <Text style={styles.productName} numberOfLines={2}>
                         {product.name}
@@ -732,6 +788,7 @@ export default function HomeScreen() {
             {isCategorySwitchLoading ? (
               <View style={styles.categoryLoadingContainer}>
                 <ActivityIndicator size="large" color="#4A148C" />
+                <Text style={styles.loadingText}>Loading products...</Text>
               </View>
             ) : categoryError ? (
               <View style={styles.errorContainer}>
@@ -745,9 +802,16 @@ export default function HomeScreen() {
               </View>
             ) : categoryProducts.length === 0 && !isCategoryLoading ? (
               <View style={styles.noProductsContainer}>
+                <MaterialIcons name="inventory" size={64} color="#ccc" />
                 <Text style={styles.noProductsText}>
-                  No products found in this category.
+                  {categoryError ? 'Failed to load products. Please try again.' : 'No products available at the moment.'}
                 </Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={onCategoryRefresh}
+                >
+                  <Text style={styles.retryButtonText}>Refresh</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.productsContainer}>
@@ -758,16 +822,23 @@ export default function HomeScreen() {
                       style={styles.productCard}
                       onPress={() => handleCategoryProductPress(product)}
                     >
-                      <Image
-                        source={
-                          product.images && product.images.length > 0
-                            ? { uri: product.images[0] }
-                            : product.image
-                            ? { uri: product.image }
-                            : defaultProductImage
-                        }
-                        style={styles.productImage}
-                      />
+                      <View style={{ position: 'relative' }}>
+                        <Image
+                          source={
+                            product.images && product.images.length > 0
+                              ? { uri: product.images[0] }
+                              : product.image
+                              ? { uri: product.image }
+                              : defaultProductImage
+                          }
+                          style={styles.productImage}
+                        />
+                        {product.quantity === 0 && (
+                          <View style={styles.outOfStockOverlay}>
+                            <Text style={styles.outOfStockText}>Out of Stock</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>
                           {product.name}
@@ -996,10 +1067,14 @@ const styles = StyleSheet.create({
   noProductsContainer: {
     alignItems: "center",
     paddingVertical: 50,
+    paddingHorizontal: 20,
   },
   noProductsText: {
     fontSize: 16,
     color: "#666",
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 20,
   },
   loadingMoreContainer: {
     paddingVertical: 20,
