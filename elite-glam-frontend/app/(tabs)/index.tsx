@@ -195,9 +195,18 @@ export default function HomeScreen() {
   useEffect(() => {
     if (categoryProductsData) {
       if (categoryPage === 1 || isCategorySwitchLoading) {
+        // Replace the entire array when refreshing or switching categories
         setCategoryProducts(categoryProductsData);
       } else {
-        setCategoryProducts(prev => [...prev, ...categoryProductsData]);
+        // When loading more (pagination), append new items but ensure no duplicates
+        setCategoryProducts(prev => {
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(prev.map(p => p.id));
+          // Filter out any products that already exist in the previous state
+          const newProducts = categoryProductsData.filter(p => !existingIds.has(p.id));
+          // Return combined array with no duplicates
+          return [...prev, ...newProducts];
+        });
       }
       setCategoryHasMore(categoryProductsData.length === CATEGORY_ITEMS_PER_PAGE);
     }
@@ -410,9 +419,18 @@ export default function HomeScreen() {
   useEffect(() => {
     if (searchResultsData) {
       if (searchPage === 1) {
+        // Replace the entire array for new searches
         setSearchedProducts(searchResultsData);
       } else {
-        setSearchedProducts(prev => [...prev, ...searchResultsData]);
+        // When loading more search results, append new items but ensure no duplicates
+        setSearchedProducts(prev => {
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(prev.map(p => p.id));
+          // Filter out any products that already exist in the previous state
+          const newProducts = searchResultsData.filter(p => !existingIds.has(p.id));
+          // Return combined array with no duplicates
+          return [...prev, ...newProducts];
+        });
       }
       setSearchHasMore(searchResultsData.length === SEARCH_ITEMS_PER_PAGE);
     }
