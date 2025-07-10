@@ -469,14 +469,6 @@ export default function BookingDetailsScreen() {
     if (booking.status === "confirmed") {
       return (
         <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.messageButton]}
-            onPress={handleMessageButtonPress}
-          >
-            <MaterialIcons name="chat" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Message Seller</Text>
-          </TouchableOpacity>
-
           {booking.productId ? (
             <TouchableOpacity
               style={[styles.actionButton, styles.rateButton]}
@@ -502,15 +494,6 @@ export default function BookingDetailsScreen() {
               <Text style={styles.disabledButtonText}>Product Unavailable</Text>
             </TouchableOpacity>
           )}
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.cancelButton]}
-            onPress={handleCancelBooking}
-            disabled={actionLoading}
-          >
-            <MaterialIcons name="cancel" size={20} color="white" />
-            <Text style={styles.actionButtonText}>Cancel Booking</Text>
-          </TouchableOpacity>
         </View>
       );
     }
