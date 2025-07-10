@@ -265,6 +265,28 @@ export class ProductsService implements OnModuleInit {
     }
   }
 
+  async updateQuantity(id: string, quantity: number): Promise<void> {
+    try {
+      const product = await this.firebaseService.findById<Product>(this.COLLECTION, id);
+      if (!product) {
+        throw new NotFoundException(`Product with ID "${id}" not found`);
+      }
+
+      // Ensure quantity is not negative
+      const newQuantity = Math.max(0, quantity);
+      
+      await this.firebaseService.update(this.COLLECTION, id, {
+        quantity: newQuantity,
+        updatedAt: new Date(),
+      });
+
+      console.log(`Product ${id} quantity updated to ${newQuantity}`);
+    } catch (error) {
+      console.error('Error updating product quantity:', error);
+      throw error;
+    }
+  }
+
   async remove(id: string): Promise<void> {
     try {
       const product = await this.firebaseService.findById<Product>(this.COLLECTION, id);

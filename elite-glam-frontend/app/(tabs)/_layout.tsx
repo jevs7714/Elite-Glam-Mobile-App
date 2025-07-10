@@ -1,4 +1,4 @@
-import { Tabs, useFocusEffect } from "expo-router";
+import { Tabs, useFocusEffect, router } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import {
   TouchableOpacity,
@@ -13,7 +13,6 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import React, { useState, useCallback, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
-import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../../services/api";
 
@@ -216,6 +215,16 @@ export default function TabsLayout() {
               backgroundColor: "#7E57C2",
             },
             headerTintColor: "#fff",
+            headerTitle: () => <CustomHeaderTitle />,
+            headerRight: () =>
+              !isShopOwner && (
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => router.push("/(store)/my-cart")}
+                >
+                  <MaterialIcons name="shopping-cart" size={24} color="#fff" />
+                </TouchableOpacity>
+              ),
             tabBarActiveTintColor: "#7E57C2",
             tabBarInactiveTintColor: "#888",
             tabBarStyle: {
@@ -241,7 +250,6 @@ export default function TabsLayout() {
             name="index"
             options={{
               title: "Home",
-              headerTitle: () => <CustomHeaderTitle />,
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="home" size={size} color={color} />
               ),
@@ -259,18 +267,14 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
-            name="my-cart"
+            name="booking-status"
             options={{
-              title: "My Cart",
-              headerTitle: "My Cart",
+              title: "My Booking",
+              headerTitle: "My Booking",
               tabBarIcon: ({ color, size }) => (
-                <MaterialIcons
-                  name="shopping-cart"
-                  size={size}
-                  color={color}
-                />
+                <MaterialIcons name="event" size={size} color={color} />
               ),
-              href: !isShopOwner ? "/my-cart" : null,
+              href: !isShopOwner ? "/booking-status" : null,
             }}
           />
           <Tabs.Screen
@@ -281,7 +285,8 @@ export default function TabsLayout() {
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="notifications" size={size} color={color} />
               ),
-              tabBarBadge: notificationCount > 0 ? notificationCount : undefined,
+              tabBarBadge:
+                notificationCount > 0 ? notificationCount : undefined,
             }}
           />
           <Tabs.Screen

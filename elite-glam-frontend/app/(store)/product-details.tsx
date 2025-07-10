@@ -1001,6 +1001,20 @@ const ProductDetails = () => {
               {product.description || 'No description available'}
             </Text>
 
+            {/* Stock Information */}
+            <View style={styles.stockContainer}>
+              <MaterialIcons name="inventory" size={16} color="#666" />
+              <Text style={[
+                styles.stockText,
+                product.quantity === 0 && styles.outOfStockText
+              ]}>
+                {product.quantity === 0 
+                  ? 'Out of Stock' 
+                  : `${product.quantity} ${product.quantity === 1 ? 'item' : 'items'} available`
+                }
+              </Text>
+            </View>
+
             {/* Seller Info */}
             <View style={styles.sellerContainer}>
               <View style={styles.sellerAvatar}>
@@ -1088,19 +1102,28 @@ const ProductDetails = () => {
               ]}>{isInRentLater ? "Remove from Cart" : "Add to Cart"}</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={styles.bookButton}
-            onPress={() => router.push({
-              pathname: '/(store)/confirm-booking',
-              params: {
-                productId: product.id,
-                productName: product.name,
-                productPrice: product.price
-              }
-            })}
-          >
-            <Text style={styles.bookButtonText}>Rent Now</Text>
-          </TouchableOpacity>
+          
+          {product.quantity > 0 ? (
+            <TouchableOpacity 
+              style={styles.bookButton}
+              onPress={() => router.push({
+                pathname: '/(store)/confirm-booking',
+                params: {
+                  productId: product.id,
+                  productName: product.name,
+                  productPrice: product.price
+                }
+              })}
+            >
+              <Text style={styles.bookButtonText}>Rent Now</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.bookButton, styles.outOfStockButton]}>
+              <Text style={[styles.bookButtonText, styles.outOfStockButtonText]}>
+                Out of Stock
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -1410,6 +1433,30 @@ const styles = StyleSheet.create({
   bookButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  outOfStockButton: {
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+  },
+  outOfStockButtonText: {
+    color: '#718096',
+    fontWeight: '500',
+  },
+  stockContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginHorizontal: 16,
+  },
+  stockText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 4,
+  },
+  outOfStockText: {
+    color: '#E53E3E',
     fontWeight: '600',
   },
   sellerContainer: {
