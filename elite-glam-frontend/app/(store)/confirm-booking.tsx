@@ -10,10 +10,11 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
-  Switch,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { bookingService } from '../../services/booking.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { productsService } from '../../services/products.service';
@@ -39,6 +40,9 @@ const ConfirmBooking = () => {
   const [eventTime, setEventTime] = useState('16:58');
   const [eventTimePeriod, setEventTimePeriod] = useState('PM');
   const [eventType, setEventType] = useState('');
+  const [otherEventType, setOtherEventType] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const eventOptions = ['Wedding', 'Birthday', 'Debut', 'Corporate Event', 'Others'];
   const [fittingTime, setFittingTime] = useState('10:00');
   const [fittingTimePeriod, setFittingTimePeriod] = useState('AM');
   const [eventLocation, setEventLocation] = useState('');
@@ -47,12 +51,17 @@ const ConfirmBooking = () => {
   const [productImage, setProductImage] = useState<string | undefined>(undefined);
   const [ownerUsername, setOwnerUsername] = useState<string | undefined>(undefined);
   const [includeMakeup, setIncludeMakeup] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [availableQuantity, setAvailableQuantity] = useState<number>(0);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
+  const [isLoadingProduct, setIsLoadingProduct] = useState<boolean>(true);
   
   // Parse the price from URL params or use default
   const basePrice = productPrice ? parseFloat(productPrice.toString()) : 5999;
   const makeupServicePrice = 1500; // Define the price for the makeup service
 
-  const totalPrice = includeMakeup ? basePrice + makeupServicePrice : basePrice;
+  const itemTotal = basePrice * selectedQuantity;
+  const totalPrice = includeMakeup ? itemTotal + makeupServicePrice : itemTotal;
   const formattedPrice = totalPrice.toLocaleString();
 
   // Get current month and year
@@ -96,6 +105,28 @@ const ConfirmBooking = () => {
   };
 
   const handleConfirmBooking = async () => {
+    // Validate size selection
+    if (!selectedSize) {
+      Alert.alert('Size Required', 'Please select a size before confirming your booking.');
+      return;
+    }
+
+    // Validate quantity selection
+    if (selectedQuantity < 1 || selectedQuantity > availableQuantity) {
+      Alert.alert('Invalid Quantity', `Please select between 1 and ${availableQuantity} items.`);
+      return;
+    }
+
+    if (availableQuantity === 0) {
+      Alert.alert('Out of Stock', 'This product is currently out of stock.');
+      return;
+    }
+
+    if (isLoadingProduct) {
+      Alert.alert('Loading', 'Please wait while we load product information.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -116,6 +147,11 @@ const ConfirmBooking = () => {
         throw new Error('Product data or owner information not found');
       }
 
+      // Check if there's enough stock
+      if (productData.quantity < selectedQuantity) {
+        throw new Error(`Only ${productData.quantity} items available. Please reduce your quantity.`);
+      }
+
       // Create booking data
       const bookingData = {
         customerName: userData.username,
@@ -134,11 +170,13 @@ const ConfirmBooking = () => {
         sellerLocation,
         productImage,
         eventTimePeriod,
-        eventType,
+        eventType: eventType === 'Others' ? otherEventType : eventType,
         fittingTime,
         fittingTimePeriod,
         eventLocation,
-        includeMakeup
+        includeMakeup,
+        quantity: selectedQuantity,
+        selectedSize
       };
 
       console.log('Creating booking with data:', {
@@ -154,6 +192,32 @@ const ConfirmBooking = () => {
       // Submit booking using the api instance
       const response = await api.post('/bookings', bookingData);
       console.log('Booking created response:', response);
+
+      // Update product quantity after successful booking
+      try {
+        const newQuantity = productData.quantity - selectedQuantity;
+        console.log(`Attempting to update product quantity from ${productData.quantity} to ${newQuantity}`);
+        
+        await productsService.updateProductQuantity(productId.toString(), newQuantity);
+        console.log(`Product quantity updated successfully from ${productData.quantity} to ${newQuantity}`);
+        
+        // Update local state to reflect new quantity
+        setAvailableQuantity(newQuantity);
+      } catch (quantityError: any) {
+        console.error('Failed to update product quantity:', quantityError);
+        console.error('Quantity update error details:', {
+          message: quantityError.message,
+          status: quantityError.response?.status,
+          data: quantityError.response?.data
+        });
+        
+        // Show a warning but don't fail the booking
+        Alert.alert(
+          'Warning',
+          'Your booking was successful, but there was an issue updating the product quantity. Please contact support if you encounter any issues.',
+          [{ text: 'OK' }]
+        );
+      }
 
       Alert.alert(
         'Success',
@@ -184,11 +248,17 @@ const ConfirmBooking = () => {
   useEffect(() => {
     const fetchSellerLocation = async () => {
       try {
+        setIsLoadingProduct(true);
         if (productId) {
           console.log('Fetching product data for ID:', productId);
           // Get the product details to get seller's ID and image
           const productData = await productsService.getProductById(productId.toString());
           console.log('Fetched product:', productData);
+          
+          // Set available quantity
+          const quantity = productData?.quantity || 0;
+          setAvailableQuantity(quantity);
+          console.log('Product quantity loaded:', quantity);
           
           if (productData?.image) {
             setProductImage(productData.image);
@@ -233,7 +303,10 @@ const ConfirmBooking = () => {
       } catch (error) {
         console.error('Error fetching seller location:', error);
         setSellerLocation('Location not available');
+        setAvailableQuantity(0); // Set to 0 on error to prevent booking
         // Don't set ownerUsername on error to trigger the validation in handleConfirmBooking
+      } finally {
+        setIsLoadingProduct(false);
       }
     };
 
@@ -257,6 +330,89 @@ const ConfirmBooking = () => {
           <View style={styles.productInfoContainer}>
             <Text style={styles.sectionTitle}>Product</Text>
             <Text style={styles.productName}>{productName}</Text>
+
+            <View style={styles.sizeSelectorContainer}>
+              <View style={styles.sizeSelectorHeader}>
+                <Ionicons name="shirt-outline" size={22} color="#4A5568" />
+                <Text style={styles.sizeSelectorTitle}>Select Size</Text>
+              </View>
+              <View style={styles.sizeOptionsContainer}>
+                {['S', 'M', 'L', 'XL'].map((size) => (
+                  <TouchableOpacity
+                    key={size}
+                    style={[
+                      styles.sizeOption,
+                      selectedSize === size && styles.sizeOptionSelected,
+                    ]}
+                    onPress={() => setSelectedSize(size)}
+                  >
+                    <Text
+                      style={[
+                        styles.sizeOptionText,
+                        selectedSize === size && styles.sizeOptionTextSelected,
+                      ]}
+                    >
+                      {size}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Quantity Selector */}
+            <View style={styles.quantitySelectorContainer}>
+              <View style={styles.quantitySelectorHeader}>
+                <MaterialIcons name="inventory" size={22} color="#4A5568" />
+                <Text style={styles.quantitySelectorTitle}>Quantity</Text>
+              </View>
+              <View style={styles.quantityControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    selectedQuantity <= 1 && styles.quantityButtonDisabled
+                  ]}
+                  onPress={() => setSelectedQuantity(Math.max(1, selectedQuantity - 1))}
+                  disabled={selectedQuantity <= 1}
+                >
+                  <AntDesign 
+                    name="minus" 
+                    size={18} 
+                    color={selectedQuantity <= 1 ? '#ccc' : '#4A5568'} 
+                  />
+                </TouchableOpacity>
+                
+                <View style={styles.quantityDisplay}>
+                  <Text style={styles.quantityValue}>{selectedQuantity}</Text>
+                </View>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.quantityButton,
+                    (selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct) && styles.quantityButtonDisabled
+                  ]}
+                  onPress={() => setSelectedQuantity(Math.min(availableQuantity, selectedQuantity + 1))}
+                  disabled={selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct}
+                >
+                  <AntDesign 
+                    name="plus" 
+                    size={18} 
+                    color={(selectedQuantity >= availableQuantity || availableQuantity <= 0 || isLoadingProduct) ? '#ccc' : '#4A5568'} 
+                  />
+                </TouchableOpacity>
+              </View>
+              {isLoadingProduct ? (
+                <Text style={styles.availabilityText}>Loading availability...</Text>
+              ) : (
+                <>
+                  <Text style={styles.availabilityText}>
+                    Available: {availableQuantity} {availableQuantity === 1 ? 'item' : 'items'}
+                  </Text>
+                  {availableQuantity === 0 && (
+                    <Text style={styles.outOfStockText}>Out of Stock</Text>
+                  )}
+                </>
+              )}
+            </View>
           </View>
         )}
 
@@ -316,7 +472,7 @@ const ConfirmBooking = () => {
 
           {/* Fitting Time Selection */}
           <View style={styles.fittingTimeContainer}>
-            <Text style={styles.fittingTimeLabel}>Time of Arrival</Text>
+            <Text style={styles.fittingTimeLabel}>Preferred Time of Arrival</Text>
             <View style={styles.fittingTimeInputContainer}>
               <TextInput 
                 style={styles.fittingTimeInput} 
@@ -362,17 +518,54 @@ const ConfirmBooking = () => {
           <View style={styles.eventDetailRow}>
             <Text style={styles.eventDetailLabel}>Type of Event</Text>
             <View style={styles.eventTypeInputContainer}>
-              <TextInput 
-                style={styles.eventTypeInput} 
-                placeholder="e.g., Wedding, Birthday, Debut"
-                placeholderTextColor="#999"
-                value={eventType}
-                onChangeText={setEventType}
-              />
-              <Ionicons name="calendar-outline" size={20} color="#666" />
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => setIsDropdownOpen(true)}
+              >
+                <Text style={styles.dropdownButtonText}>
+                  {eventType || 'Select an event type'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#666" />
+              </TouchableOpacity>
+
+              {eventType === 'Others' && (
+                <TextInput
+                  style={styles.eventTypeInput}
+                  placeholder="Please specify your event"
+                  placeholderTextColor="#999"
+                  value={otherEventType}
+                  onChangeText={setOtherEventType}
+                />
+              )}
             </View>
           </View>
           
+          <Modal
+            transparent={true}
+            visible={isDropdownOpen}
+            animationType="fade"
+            onRequestClose={() => setIsDropdownOpen(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setIsDropdownOpen(false)}>
+              <View style={styles.modalOverlay}>
+                <View style={styles.dropdownContainer}>
+                  {eventOptions.map((option, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.dropdownOption}
+                      onPress={() => {
+                        setEventType(option);
+                        setIsDropdownOpen(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownOptionText}>{option}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+
           <View style={styles.eventDetailRow}>
             <Text style={styles.eventDetailLabel}>Date of Event</Text>
             <View style={styles.eventDateInputContainer}>
@@ -466,6 +659,26 @@ const ConfirmBooking = () => {
             <Text style={styles.summaryValue}>{productName}</Text>
           </View>
 
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Size</Text>
+            <Text style={styles.summaryValue}>{selectedSize || 'Not selected'}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Quantity</Text>
+            <Text style={styles.summaryValue}>{selectedQuantity} {selectedQuantity === 1 ? 'item' : 'items'}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Price per item</Text>
+            <Text style={styles.summaryValue}>₱{basePrice.toLocaleString()}</Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Subtotal</Text>
+            <Text style={styles.summaryValue}>₱{itemTotal.toLocaleString()}</Text>
+          </View>
+
           {includeMakeup && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Makeup Service</Text>
@@ -496,7 +709,7 @@ const ConfirmBooking = () => {
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Time of Arrival</Text>
+            <Text style={styles.summaryLabel}>Preferred Time of Arrival</Text>
             <Text style={styles.summaryValue}>{fittingTime} {fittingTimePeriod}</Text>
           </View>
 
@@ -534,14 +747,20 @@ const ConfirmBooking = () => {
 
           {/* Confirm Booking Button */}
           <TouchableOpacity 
-            style={[styles.confirmButton, isSubmitting && styles.confirmButtonDisabled]}
+            style={[
+              styles.confirmButton, 
+              (isSubmitting || availableQuantity === 0 || isLoadingProduct) && styles.confirmButtonDisabled
+            ]}
             onPress={handleConfirmBooking}
-            disabled={isSubmitting}
+            disabled={isSubmitting || availableQuantity === 0 || isLoadingProduct}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.confirmButtonText}>Confirm</Text>
+              <Text style={styles.confirmButtonText}>
+                {isLoadingProduct ? 'Loading...' : 
+                 availableQuantity === 0 ? 'Out of Stock' : 'Confirm Booking'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -581,7 +800,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 8,
     paddingHorizontal: 4,
-    marginBottom: 8,
+     // Ensure enough space for all content
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    height: 50,
+    backgroundColor: '#FFF',
+  },
+  dropdownButtonText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  eventTypeInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#333',
+    height: 50,
+    marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    padding: 10,
+    width: width * 0.8,
+    maxHeight: 300,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownOption: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+    color: '#333',
   },
   productName: {
     fontSize: 16,
@@ -602,7 +874,7 @@ const styles = StyleSheet.create({
   },
   calendarHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -645,7 +917,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   eventDetailRow: {
-    marginBottom: 16,
+    marginBottom: 20,
+    zIndex: 1, // Ensure dropdown appears above other elements
   },
   makeupServiceContainer: {
     flexDirection: 'row',
@@ -681,18 +954,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   eventTypeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    height: 44,
-  },
-  eventTypeInput: {
-    flex: 1,
-    height: 40,
-    fontSize: 16,
+    // This now acts as a simple container for the dropdown button
+    // and the conditional 'Others' text input.
   },
   eventDateInputContainer: {
     flexDirection: 'row',
@@ -775,9 +1038,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6B46C1',
   },
+  sizeSelectorContainer: {
+    marginTop: 16,
+    backgroundColor: '#F7FAFC',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sizeSelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sizeSelectorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginLeft: 8,
+  },
+  sizeOptionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sizeOption: {
+    minWidth: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+  },
+  sizeOptionSelected: {
+    backgroundColor: '#E9D8FD',
+    borderColor: '#9F7AEA',
+  },
+  sizeOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+  },
+  sizeOptionTextSelected: {
+    color: '#6B46C1',
+  },
   fittingTimeContainer: {
     marginTop: 16,
     paddingTop: 16,
+    paddingHorizontal: 16,
     borderTopWidth: 1,
     borderTopColor: '#e0e0e0',
   },
@@ -844,6 +1154,74 @@ const styles = StyleSheet.create({
   emptyDay: {
     width: width / 7,
     height: 40,
+  },
+  quantitySelectorContainer: {
+    marginTop: 16,
+    backgroundColor: '#F7FAFC',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  quantitySelectorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  quantitySelectorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginLeft: 8,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 16,
+  },
+  quantityButtonDisabled: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E2E8F0',
+  },
+  quantityDisplay: {
+    minWidth: 60,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E0',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  quantityValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  availabilityText: {
+    fontSize: 14,
+    color: '#4A5568',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  outOfStockText: {
+    fontSize: 14,
+    color: '#E53E3E',
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '600',
   },
 });
 

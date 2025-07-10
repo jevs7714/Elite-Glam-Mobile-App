@@ -22,6 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../../services/api";
 import FilterModal, { Filters } from "../components/FilterModal";
 import ShopOwnerHome from "../components/ShopOwnerHome";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Constants for category products
 const CATEGORY_ITEMS_PER_PAGE = 8;
@@ -51,6 +52,7 @@ interface CategoryCacheData {
 // Interface for category products with rating
 interface CategoryProductWithRating extends CategoryProduct {
   averageRating: number;
+  quantity: number;
 }
 
 // Interface for searched products (structure from former search.tsx)
@@ -65,6 +67,7 @@ interface SearchProduct {
   color: string[];
   available: boolean;
   averageRating?: number;
+  quantity: number;
 }
 
 // Interface for search result cache
@@ -114,89 +117,32 @@ export default function HomeScreen() {
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false); // To control view mode
 
-  // --- Category Product Logic ---
-  const loadCachedCategoryProducts = async () => {
-    try {
-      const cachedData = await AsyncStorage.getItem(CATEGORY_CACHE_KEY);
-      if (cachedData) {
-        const {
-          products: cachedProducts,
-          timestamp,
-          category,
-        } = JSON.parse(cachedData) as CategoryCacheData;
-        const isExpired = Date.now() - timestamp > CATEGORY_CACHE_EXPIRY;
-        const isSameCategory = category === "all";
-        if (!isExpired && isSameCategory) {
-          setCategoryProducts(cachedProducts);
-          setIsCategoryLoading(false);
-          return true;
-        }
-      }
-      return false;
-    } catch (error) {
-      console.error("Error loading cached category products:", error);
-      return false;
-    }
-  };
-
-  const saveCategoryProductsToCache = async (
-    productsToCache: CategoryProductWithRating[]
-  ) => {
-    try {
-      const cacheData: CategoryCacheData = {
-        products: productsToCache,
-        timestamp: Date.now(),
-        category: "all",
-      };
-      await AsyncStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify(cacheData));
-    } catch (error) {
-      console.error("Error saving category products to cache:", error);
-    }
-  };
-
-  const fetchProductRatings = async (productId: string): Promise<number> => {
-    try {
-      const response = await api.get(`/ratings/product/${productId}`);
-      if (response.data && response.data.length > 0) {
-        const sum = response.data.reduce(
-          (acc: number, curr: any) => acc + curr.rating,
-          0
-        );
-        return sum / response.data.length;
-      }
-      return 0;
-    } catch (error) {
-      // console.error('Error fetching product ratings:', error);
-      return 0;
-    }
-  };
-
-  const fetchCategoryProducts = async (
-    filters: Filters,
-    pageNumber: number,
-    shouldRefresh: boolean = false
-  ) => {
-    if (shouldRefresh) {
-      setCategoryError(null);
-      setCategoryPage(1);
-      setCategoryHasMore(true);
-    } else if (pageNumber === 1 && !isCategorySwitchLoading) {
-      // Try to load from cache first if it's the initial load for the category (not a switch)
-      const hasCachedData = await loadCachedCategoryProducts();
-      if (hasCachedData) return;
-    }
-
-    if (pageNumber === 1 && !shouldRefresh) setIsCategoryLoading(true);
-    if (pageNumber > 1) setIsCategoryLoadingMore(true);
-
-    try {
+  // --- React Query for Category Products ---
+  const queryClient = useQueryClient();
+  
+  // Query key factory for products
+  const getProductsQueryKey = (filters: Filters, page: number) => [
+    'products',
+    { filters, page }
+  ];
+  
+  // Use React Query for fetching and caching products
+  const {
+    data: categoryProductsData,
+    isLoading: isCategoryQueryLoading,
+    isRefetching: isCategoryQueryRefetching,
+    error: categoryQueryError,
+    refetch: refetchCategoryProducts
+  } = useQuery({
+    queryKey: getProductsQueryKey(activeFilters, categoryPage),
+    queryFn: async () => {
       const params: any = {
-        page: pageNumber,
+        page: categoryPage,
         limit: CATEGORY_ITEMS_PER_PAGE,
-        categories: filters.categories?.join(","),
-        minPrice: filters.minPrice,
-        maxPrice: filters.maxPrice,
-        minRating: filters.minRating,
+        categories: activeFilters.categories?.join(","),
+        minPrice: activeFilters.minPrice,
+        maxPrice: activeFilters.maxPrice,
+        minRating: activeFilters.minRating,
       };
 
       // Remove undefined or null params
@@ -219,55 +165,100 @@ export default function HomeScreen() {
       );
 
       // Sort products by rating (highest first), then by name for consistency
-      const sortedProducts = productsWithRatings.sort((a, b) => {
+      return productsWithRatings.sort((a, b) => {
         if (b.averageRating !== a.averageRating) {
           return b.averageRating - a.averageRating; // Higher rating first
         }
         return a.name.localeCompare(b.name); // Alphabetical as secondary sort
       });
+    },
+    staleTime: CATEGORY_CACHE_EXPIRY, // 5 minutes before refetching
+    enabled: !isRoleLoading && userRole !== "shop_owner" && !isSearchActive,
+    retry: 3,
+    retryDelay: 1000,
+  });
 
-      setCategoryProducts((prev) =>
-        shouldRefresh || isCategorySwitchLoading
-          ? sortedProducts
-          : [...prev, ...sortedProducts]
-      );
-      setCategoryHasMore(
-        productsWithRatings.length === CATEGORY_ITEMS_PER_PAGE
-      );
-      if (shouldRefresh || isCategorySwitchLoading) {
-        await saveCategoryProductsToCache(productsWithRatings);
+  const fetchProductRatings = async (productId: string): Promise<number> => {
+    try {
+      const response = await api.get(`/ratings/product/${productId}`);
+      if (response.data && response.data.length > 0) {
+        const sum = response.data.reduce(
+          (acc: number, curr: any) => acc + curr.rating,
+          0
+        );
+        return sum / response.data.length;
       }
-    } catch (err: any) {
-      setCategoryError(err.message || "Failed to fetch products.");
-    } finally {
-      setIsCategoryLoading(false);
-      setIsCategoryRefreshing(false);
-      setIsCategoryLoadingMore(false);
-      setIsCategorySwitchLoading(false);
+      return 0;
+    } catch (error) {
+      // console.error('Error fetching product ratings:', error);
+      return 0;
     }
   };
 
+  // Update UI state based on React Query results
+  useEffect(() => {
+    console.log('Home screen state update:', {
+      categoryProductsData: categoryProductsData?.length,
+      isCategoryQueryLoading,
+      isCategoryQueryRefetching,
+      categoryQueryError: categoryQueryError?.message,
+      categoryPage,
+      isSearchActive,
+      userRole
+    });
+
+    if (categoryProductsData) {
+      if (categoryPage === 1 || isCategorySwitchLoading) {
+        // Replace the entire array when refreshing or switching categories
+        setCategoryProducts(categoryProductsData);
+      } else {
+        // When loading more (pagination), append new items but ensure no duplicates
+        setCategoryProducts(prev => {
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(prev.map(p => p.id));
+          // Filter out any products that already exist in the previous state
+          const newProducts = categoryProductsData.filter(p => !existingIds.has(p.id));
+          // Return combined array with no duplicates
+          return [...prev, ...newProducts];
+        });
+      }
+      setCategoryHasMore(categoryProductsData.length === CATEGORY_ITEMS_PER_PAGE);
+    }
+    
+    if (categoryQueryError) {
+      setCategoryError((categoryQueryError as Error).message || "Failed to fetch products.");
+    } else {
+      setCategoryError(null);
+    }
+    
+    setIsCategoryLoading(isCategoryQueryLoading && categoryPage === 1);
+    setIsCategoryRefreshing(isCategoryQueryRefetching && categoryPage === 1);
+    setIsCategoryLoadingMore(isCategoryQueryLoading && categoryPage > 1);
+    
+    if (!isCategoryQueryLoading && !isCategoryQueryRefetching) {
+      setIsCategorySwitchLoading(false);
+    }
+  }, [categoryProductsData, isCategoryQueryLoading, isCategoryQueryRefetching, categoryQueryError, categoryPage]);
+
   const onCategoryRefresh = useCallback(() => {
     setIsCategoryRefreshing(true);
-    fetchCategoryProducts(activeFilters, 1, true);
-  }, [activeFilters]);
+    refetchCategoryProducts();
+  }, [refetchCategoryProducts]);
 
   const loadMoreCategoryProducts = () => {
     if (!isCategoryLoadingMore && categoryHasMore) {
       const nextPage = categoryPage + 1;
       setCategoryPage(nextPage);
-      fetchCategoryProducts(activeFilters, nextPage);
+      // The query will automatically refetch with the new page parameter
     }
   };
 
   useEffect(() => {
-    // Initial load for the default category or when category changes
+    // Reset page and set loading state when filters change
     setIsCategorySwitchLoading(true);
     setCategoryPage(1);
     setCategoryHasMore(true);
-    fetchCategoryProducts(activeFilters, 1, true).finally(() =>
-      setIsCategorySwitchLoading(false)
-    );
+    // The query will automatically refetch with the new filters
   }, [activeFilters]);
 
   // Consolidated function to check user role
@@ -333,7 +324,21 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       checkUserRole();
-    }, [checkUserRole])
+      // Reset search state when returning to home screen
+      setIsSearchActive(false);
+      setSearchQuery('');
+      setShowSearchHistory(false);
+      setSearchedProducts([]);
+      
+      // Force refetch products when returning to home screen
+      if (userRole === 'customer' || userRole === null) {
+        // Invalidate and refetch the query to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        setTimeout(() => {
+          refetchCategoryProducts();
+        }, 100);
+      }
+    }, [checkUserRole, refetchCategoryProducts, userRole])
   );
 
   // Effect to specifically handle the refresh after login
@@ -350,43 +355,53 @@ export default function HomeScreen() {
       return;
     }
 
-    // If the user is a customer, fetch products
-    if (userRole !== "shop_owner" && !isSearchActive) {
-      fetchCategoryProducts(activeFilters, 1, true);
-    }
-
     // Load search history for all users
     loadSearchHistory();
-  }, [userRole, isRoleLoading, isSearchActive, activeFilters]);
+    
+    // React Query will handle fetching products based on the enabled condition
+  }, [userRole, isRoleLoading]);
 
-  // --- Search Functionality Logic ---
-  const loadSearchFromCache = async (
-    key: string
-  ): Promise<SearchProduct[] | null> => {
-    try {
-      const cachedResult = await AsyncStorage.getItem(key);
-      if (cachedResult) {
-        const { data, timestamp } = JSON.parse(cachedResult) as SearchCacheData;
-        if (Date.now() - timestamp < SEARCH_CACHE_EXPIRY) {
-          return data;
-        }
-        await AsyncStorage.removeItem(key); // Expired, remove it
-      }
-      return null;
-    } catch (error) {
-      console.error("Error loading search from cache:", error);
-      return null;
-    }
-  };
+  // --- Search Functionality with React Query ---
+  // Query key factory for search results
+  const getSearchQueryKey = (query: string, page: number) => [
+    'search',
+    { query, page }
+  ];
+  
+  // Use React Query for search functionality
+  const {
+    data: searchResultsData,
+    isLoading: isSearchQueryLoading,
+    error: searchQueryError,
+    refetch: refetchSearch,
+    isRefetching: isSearchQueryRefetching
+  } = useQuery({
+    queryKey: getSearchQueryKey(searchQuery, searchPage),
+    queryFn: async () => {
+      if (!searchQuery.trim()) return [];
+      
+      const response = await api.get("/products", {
+        params: {
+          search: searchQuery,
+          page: searchPage,
+          limit: SEARCH_ITEMS_PER_PAGE,
+        },
+      });
 
-  const saveSearchToCache = async (key: string, data: SearchProduct[]) => {
-    try {
-      const item: SearchCacheData = { data, timestamp: Date.now() };
-      await AsyncStorage.setItem(key, JSON.stringify(item));
-    } catch (error) {
-      console.error("Error saving search to cache:", error);
-    }
-  };
+      const productsWithRatings = await Promise.all(
+        (response.data.products || response.data).map(
+          async (product: SearchProduct) => ({
+            ...product,
+            averageRating: await fetchProductRatings(product.id.toString()),
+          })
+        )
+      );
+      
+      return productsWithRatings;
+    },
+    staleTime: SEARCH_CACHE_EXPIRY, // 5 minutes before refetching
+    enabled: searchQuery.trim().length > 0 && isSearchActive,
+  });
 
   const loadSearchHistory = async () => {
     try {
@@ -428,70 +443,35 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchSearchedProducts = async (
-    currentQuery: string,
-    pageNumber: number,
-    isNewSearch: boolean = false
-  ) => {
-    if (!currentQuery.trim()) {
-      setSearchedProducts([]);
-      setIsSearchActive(false);
-      return;
-    }
-    setIsSearchActive(true);
-    const cacheKey = getSearchCacheKey(currentQuery, pageNumber);
-
-    if (isNewSearch) {
-      setSearchError(null);
-      setSearchPage(1);
-      setSearchHasMore(true);
-      setSearchedProducts([]); // Clear previous results for new search
-      setIsSearchLoading(true);
-    } else {
-      setIsSearchLoadingMore(true);
-    }
-
-    try {
-      if (isNewSearch) {
-        // Check cache only for the first page of a new search
-        const cachedProducts = await loadSearchFromCache(cacheKey);
-        if (cachedProducts) {
-          setSearchedProducts(cachedProducts);
-          setSearchHasMore(cachedProducts.length === SEARCH_ITEMS_PER_PAGE);
-          setIsSearchLoading(false);
-          return;
-        }
+  // Update UI state based on search query results
+  useEffect(() => {
+    if (searchResultsData) {
+      if (searchPage === 1) {
+        // Replace the entire array for new searches
+        setSearchedProducts(searchResultsData);
+      } else {
+        // When loading more search results, append new items but ensure no duplicates
+        setSearchedProducts(prev => {
+          // Get existing IDs to avoid duplicates
+          const existingIds = new Set(prev.map(p => p.id));
+          // Filter out any products that already exist in the previous state
+          const newProducts = searchResultsData.filter(p => !existingIds.has(p.id));
+          // Return combined array with no duplicates
+          return [...prev, ...newProducts];
+        });
       }
-
-      const response = await api.get("/products", {
-        params: {
-          search: currentQuery,
-          page: pageNumber,
-          limit: SEARCH_ITEMS_PER_PAGE,
-        },
-      });
-
-      const productsWithRatings = await Promise.all(
-        (response.data.products || response.data).map(
-          async (product: SearchProduct) => ({
-            ...product,
-            averageRating: await fetchProductRatings(product.id.toString()),
-          })
-        )
-      );
-
-      setSearchedProducts((prev) =>
-        isNewSearch ? productsWithRatings : [...prev, ...productsWithRatings]
-      );
-      setSearchHasMore(productsWithRatings.length === SEARCH_ITEMS_PER_PAGE);
-      await saveSearchToCache(cacheKey, productsWithRatings); // Cache new page results
-    } catch (err: any) {
-      setSearchError(err.message || "Failed to fetch search results.");
-    } finally {
-      setIsSearchLoading(false);
-      setIsSearchLoadingMore(false);
+      setSearchHasMore(searchResultsData.length === SEARCH_ITEMS_PER_PAGE);
     }
-  };
+    
+    if (searchQueryError) {
+      setSearchError((searchQueryError as Error).message || "Failed to fetch search results.");
+    } else {
+      setSearchError(null);
+    }
+    
+    setIsSearchLoading(isSearchQueryLoading && searchPage === 1);
+    setIsSearchLoadingMore(isSearchQueryLoading && searchPage > 1);
+  }, [searchResultsData, isSearchQueryLoading, searchQueryError, searchPage, isSearchQueryRefetching]);
 
   const handleSearchSubmit = (query: string) => {
     const trimmedQuery = query.trim();
@@ -505,7 +485,8 @@ export default function HomeScreen() {
     setIsSearchActive(true);
     setShowSearchHistory(false);
     saveSearchHistory(trimmedQuery);
-    fetchSearchedProducts(trimmedQuery, 1, true);
+    setSearchPage(1); // Reset to page 1 for new search
+    // React Query will automatically fetch the results
   };
 
   const debouncedSearch = useCallback(
@@ -514,8 +495,7 @@ export default function HomeScreen() {
         handleSearchSubmit(query);
       } else if (query.trim().length === 0 && isSearchActive) {
         // If search was active and query is cleared, reset to category view
-        // setShowSearchHistory(true); // Option 1: Show history immediately
-        setIsSearchActive(false); // Option 2: Go back to categories, history on focus
+        setIsSearchActive(false); // Go back to categories, history on focus
         setSearchedProducts([]);
       }
     }, 500),
@@ -536,7 +516,7 @@ export default function HomeScreen() {
     if (!isSearchLoadingMore && searchHasMore && searchQuery.trim()) {
       const nextPage = searchPage + 1;
       setSearchPage(nextPage);
-      fetchSearchedProducts(searchQuery, nextPage, false);
+      // React Query will automatically fetch the next page
     }
   };
 
@@ -588,11 +568,23 @@ export default function HomeScreen() {
 
   // --- Render Logic ---
   // Check role loading first - this is the most important condition
-  if (isRoleLoading || userRole === null) {
+  if (isRoleLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#6B4EFF" />
         <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // If role is still null after loading, default to customer
+  if (userRole === null) {
+    console.log('Role is null after loading, defaulting to customer');
+    setUserRole('customer');
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6B4EFF" />
+        <Text style={styles.loadingText}>Setting up...</Text>
       </View>
     );
   }
@@ -602,8 +594,9 @@ export default function HomeScreen() {
     return <ShopOwnerHome />;
   }
 
-  // For customers, check if products are loading
-  if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive) {
+  // For customers, check if products are loading (only show loading if we have no data at all)
+  if (isCategoryLoading && categoryProducts.length === 0 && !isSearchActive && !categoryError) {
+    console.log('Showing loading screen for products');
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4A148C" />
@@ -611,6 +604,14 @@ export default function HomeScreen() {
       </View>
     );
   }
+
+  console.log('Rendering main home screen:', {
+    userRole,
+    categoryProductsLength: categoryProducts.length,
+    isCategoryLoading,
+    isSearchActive,
+    categoryError
+  });
 
   return (
     <View style={styles.container}>
@@ -731,16 +732,23 @@ export default function HomeScreen() {
                     style={styles.productCard}
                     onPress={() => handleSearchedProductPress(product)}
                   >
-                    <Image
-                      source={
-                        product.image && product.image.length > 0
-                          ? { uri: product.image[0] }
-                          : product.image
-                          ? { uri: product.image }
-                          : defaultProductImage
-                      }
-                      style={styles.productImage}
-                    />
+                    <View style={{ position: 'relative' }}>
+                      <Image
+                        source={
+                          product.image && product.image.length > 0
+                            ? { uri: product.image[0] }
+                            : product.image
+                            ? { uri: product.image }
+                            : defaultProductImage
+                        }
+                        style={styles.productImage}
+                      />
+                      {(product as any).quantity === 0 && (
+                        <View style={styles.outOfStockOverlay}>
+                          <Text style={styles.outOfStockText}>Out of Stock</Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.productInfo}>
                       <Text style={styles.productName} numberOfLines={2}>
                         {product.name}
@@ -780,6 +788,7 @@ export default function HomeScreen() {
             {isCategorySwitchLoading ? (
               <View style={styles.categoryLoadingContainer}>
                 <ActivityIndicator size="large" color="#4A148C" />
+                <Text style={styles.loadingText}>Loading products...</Text>
               </View>
             ) : categoryError ? (
               <View style={styles.errorContainer}>
@@ -793,9 +802,16 @@ export default function HomeScreen() {
               </View>
             ) : categoryProducts.length === 0 && !isCategoryLoading ? (
               <View style={styles.noProductsContainer}>
+                <MaterialIcons name="inventory" size={64} color="#ccc" />
                 <Text style={styles.noProductsText}>
-                  No products found in this category.
+                  {categoryError ? 'Failed to load products. Please try again.' : 'No products available at the moment.'}
                 </Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={onCategoryRefresh}
+                >
+                  <Text style={styles.retryButtonText}>Refresh</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.productsContainer}>
@@ -806,16 +822,23 @@ export default function HomeScreen() {
                       style={styles.productCard}
                       onPress={() => handleCategoryProductPress(product)}
                     >
-                      <Image
-                        source={
-                          product.images && product.images.length > 0
-                            ? { uri: product.images[0] }
-                            : product.image
-                            ? { uri: product.image }
-                            : defaultProductImage
-                        }
-                        style={styles.productImage}
-                      />
+                      <View style={{ position: 'relative' }}>
+                        <Image
+                          source={
+                            product.images && product.images.length > 0
+                              ? { uri: product.images[0] }
+                              : product.image
+                              ? { uri: product.image }
+                              : defaultProductImage
+                          }
+                          style={styles.productImage}
+                        />
+                        {product.quantity === 0 && (
+                          <View style={styles.outOfStockOverlay}>
+                            <Text style={styles.outOfStockText}>Out of Stock</Text>
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.productInfo}>
                         <Text style={styles.productName} numberOfLines={2}>
                           {product.name}
@@ -1044,10 +1067,14 @@ const styles = StyleSheet.create({
   noProductsContainer: {
     alignItems: "center",
     paddingVertical: 50,
+    paddingHorizontal: 20,
   },
   noProductsText: {
     fontSize: 16,
     color: "#666",
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 20,
   },
   loadingMoreContainer: {
     paddingVertical: 20,

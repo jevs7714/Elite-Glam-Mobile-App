@@ -40,6 +40,9 @@ export interface Booking {
   fittingTimePeriod?: string;
   eventLocation?: string;
   rejectionMessage?: string;
+  quantity?: number; // Number of items being rented
+  includeMakeup?: boolean;
+  selectedSize?: string; // Selected size for the product
 }
 
 interface BookingData {
@@ -64,6 +67,9 @@ interface BookingData {
   fittingTimePeriod?: string;
   eventLocation?: string;
   rejectionMessage?: string;
+  quantity?: number;
+  includeMakeup?: boolean;
+  selectedSize?: string;
 }
 
 @Injectable()
@@ -324,6 +330,9 @@ export class BookingsService {
         fittingTime: bookingData.fittingTime,
         fittingTimePeriod: bookingData.fittingTimePeriod,
         eventLocation: bookingData.eventLocation,
+        quantity: bookingData.quantity || 1,
+        includeMakeup: bookingData.includeMakeup || false,
+        selectedSize: bookingData.selectedSize,
       };
 
       console.log('Saving booking to database:', {
