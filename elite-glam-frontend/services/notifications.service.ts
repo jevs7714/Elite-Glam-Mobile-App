@@ -9,7 +9,8 @@ export interface Notification {
     | "booking_accepted"
     | "booking_rejected"
     | "new_booking"
-    | "booking_cancelled";
+    | "booking_cancelled"
+    | "booking_completed";
   isRead: boolean;
   relatedBookingId?: string;
   relatedProductId?: string;
