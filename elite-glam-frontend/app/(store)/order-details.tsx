@@ -284,7 +284,7 @@ export default function OrderDetailsScreen() {
                 }
               }
 
-              // Then update booking status and delete
+              // Then update booking status (this will automatically create the notification)
               await bookingService.updateBookingStatus(booking.id, "completed");
               await bookingService.deleteBooking(booking.id);
 

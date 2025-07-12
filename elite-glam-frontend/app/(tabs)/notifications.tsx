@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -37,6 +39,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return "event";
       case "booking_cancelled":
         return "event-busy";
+      case "booking_completed":
+        return "done-all";
       default:
         return "notifications";
     }
@@ -52,6 +56,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         return "#2196F3";
       case "booking_cancelled":
         return "#FF9800";
+      case "booking_completed":
+        return "#2196F3";
       default:
         return "#7E57C2";
     }
@@ -116,6 +122,9 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedNotification, setSelectedNotification] =
+    useState<Notification | null>(null);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
 
   const loadNotifications = async (showLoading = true) => {
     try {
@@ -142,6 +151,13 @@ export default function NotificationsScreen() {
   );
 
   const handleNotificationPress = (notification: Notification) => {
+    // Handle completed orders with modal instead of navigation
+    if (notification.type === "booking_completed") {
+      setSelectedNotification(notification);
+      setShowCompletedModal(true);
+      return;
+    }
+
     // Navigate based on notification type and user role
     if (notification.relatedBookingId) {
       try {
@@ -224,6 +240,139 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const renderCompletedOrderModal = () => {
+    if (!selectedNotification || !showCompletedModal) return null;
+
+    // Parse the notification data to extract order details
+    const parseOrderDetails = (message: string) => {
+      try {
+        // Extract details from the notification message
+        // Expected format: "Your order for [Service Name] has been completed..."
+        const serviceMatch = message.match(
+          /order for (.+?) has been completed/
+        );
+        const serviceName = serviceMatch ? serviceMatch[1] : "Unknown Service";
+
+        return {
+          serviceName,
+          completedAt: selectedNotification.createdAt,
+          bookingId: selectedNotification.relatedBookingId || "N/A",
+        };
+      } catch (error) {
+        return {
+          serviceName: "Unknown Service",
+          completedAt: selectedNotification.createdAt,
+          bookingId: selectedNotification.relatedBookingId || "N/A",
+        };
+      }
+    };
+
+    const orderDetails = parseOrderDetails(selectedNotification.message);
+
+    return (
+      <Modal
+        visible={showCompletedModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCompletedModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <MaterialIcons name="done-all" size={32} color="#2196F3" />
+              </View>
+              <Text style={styles.modalTitle}>Order Completed</Text>
+              <TouchableOpacity
+                onPress={() => setShowCompletedModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              <View style={styles.completedBadge}>
+                <MaterialIcons name="check-circle" size={20} color="#4CAF50" />
+                <Text style={styles.completedBadgeText}>
+                  Successfully Completed
+                </Text>
+              </View>
+
+              <View style={styles.orderDetailRow}>
+                <MaterialIcons name="spa" size={20} color="#666" />
+                <View style={styles.orderDetailContent}>
+                  <Text style={styles.orderDetailLabel}>Service</Text>
+                  <Text style={styles.orderDetailValue}>
+                    {orderDetails.serviceName}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.orderDetailRow}>
+                <MaterialIcons name="event" size={20} color="#666" />
+                <View style={styles.orderDetailContent}>
+                  <Text style={styles.orderDetailLabel}>Completed On</Text>
+                  <Text style={styles.orderDetailValue}>
+                    {new Date(orderDetails.completedAt).toLocaleDateString(
+                      "en-US",
+                      {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.orderDetailRow}>
+                <MaterialIcons name="receipt" size={20} color="#666" />
+                <View style={styles.orderDetailContent}>
+                  <Text style={styles.orderDetailLabel}>Booking ID</Text>
+                  <Text style={styles.orderDetailValue}>
+                    {orderDetails.bookingId}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.messageContainer}>
+                <Text style={styles.messageLabel}>Details</Text>
+                <Text style={styles.messageText}>
+                  {selectedNotification.message}
+                </Text>
+              </View>
+
+              <View style={styles.completionNote}>
+                <MaterialIcons name="info" size={16} color="#2196F3" />
+                <Text style={styles.completionNoteText}>
+                  Your rental has been completed and the items have been
+                  returned to inventory. Thank you for choosing Elite Glam!
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.okButton}
+                onPress={() => setShowCompletedModal(false)}
+              >
+                <Text style={styles.okButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -281,6 +430,8 @@ export default function NotificationsScreen() {
           notifications.length === 0 ? styles.emptyList : undefined
         }
       />
+
+      {renderCompletedOrderModal()}
     </View>
   );
 }
@@ -404,5 +555,136 @@ const styles = StyleSheet.create({
     color: "#ccc",
     textAlign: "center",
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "85%",
+    minHeight: 300,
+    flexDirection: "column",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    backgroundColor: "#fff",
+  },
+  modalIconContainer: {
+    marginRight: 12,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    maxHeight: "70%",
+  },
+  modalScrollContent: {
+    padding: 20,
+    paddingBottom: 10,
+  },
+  completedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E8F5E8",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  completedBadgeText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4CAF50",
+  },
+  orderDetailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  orderDetailContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  orderDetailLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  orderDetailValue: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+  },
+  messageContainer: {
+    backgroundColor: "#f8f9fa",
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 12,
+  },
+  messageLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+    marginBottom: 8,
+  },
+  messageText: {
+    fontSize: 14,
+    color: "#333",
+    lineHeight: 20,
+  },
+  completionNote: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#E3F2FD",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  completionNoteText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    color: "#1976D2",
+    lineHeight: 18,
+  },
+  modalFooter: {
+    padding: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    backgroundColor: "#fff",
+  },
+  okButton: {
+    backgroundColor: "#7E57C2",
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  okButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

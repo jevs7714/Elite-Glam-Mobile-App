@@ -12,7 +12,8 @@ export interface Notification {
     | 'booking_accepted'
     | 'booking_rejected'
     | 'new_booking'
-    | 'booking_cancelled';
+    | 'booking_cancelled'
+    | 'booking_completed';
   isRead: boolean;
   relatedBookingId?: string;
   relatedProductId?: string;
@@ -29,7 +30,8 @@ interface NotificationData {
     | 'booking_accepted'
     | 'booking_rejected'
     | 'new_booking'
-    | 'booking_cancelled';
+    | 'booking_cancelled'
+    | 'booking_completed';
   isRead: boolean;
   relatedBookingId?: string;
   relatedProductId?: string;
@@ -282,6 +284,22 @@ export class NotificationsService {
       'Booking Cancelled',
       `${customerName} has cancelled their booking for "${serviceName}".`,
       'booking_cancelled',
+      bookingId,
+      productId,
+    );
+  }
+
+  async notifyBookingCompleted(
+    customerId: string,
+    bookingId: string,
+    serviceName: string,
+    productId?: string,
+  ): Promise<void> {
+    await this.createNotification(
+      customerId,
+      'Order Completed! ✅',
+      `Your order for "${serviceName}" has been completed successfully. The rented items have been returned and are now available in inventory. Thank you for choosing Elite Glam!`,
+      'booking_completed',
       bookingId,
       productId,
     );

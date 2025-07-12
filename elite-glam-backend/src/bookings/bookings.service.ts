@@ -440,6 +440,15 @@ export class BookingsService {
             docData.productId,
           );
           console.log('Notification sent to seller for booking cancellation');
+        } else if (status === 'completed' && docData.uid !== uid) {
+          // Seller completed the booking - notify customer
+          await this.notificationsService.notifyBookingCompleted(
+            docData.uid,
+            id,
+            docData.serviceName,
+            docData.productId,
+          );
+          console.log('Notification sent to customer for booking completion');
         }
       } catch (notificationError) {
         console.error(
