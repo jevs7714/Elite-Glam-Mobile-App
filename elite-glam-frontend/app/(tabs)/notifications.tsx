@@ -291,7 +291,11 @@ export default function NotificationsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
               <View style={styles.completedBadge}>
                 <MaterialIcons name="check-circle" size={20} color="#4CAF50" />
                 <Text style={styles.completedBadgeText}>
@@ -557,22 +561,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
   },
   modalContent: {
     backgroundColor: "#fff",
     borderRadius: 16,
     width: "100%",
     maxWidth: 400,
-    maxHeight: "80%",
-    overflow: "hidden",
+    maxHeight: "85%",
+    minHeight: 300,
+    flexDirection: "column",
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     padding: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+    backgroundColor: "#fff",
   },
   modalIconContainer: {
     marginRight: 12,
@@ -587,8 +595,11 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalBody: {
-    flex: 1,
+    maxHeight: "70%",
+  },
+  modalScrollContent: {
     padding: 20,
+    paddingBottom: 10,
   },
   completedBadge: {
     flexDirection: "row",
@@ -596,7 +607,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E8F5E8",
     padding: 12,
     borderRadius: 8,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   completedBadgeText: {
     marginLeft: 8,
@@ -607,7 +618,7 @@ const styles = StyleSheet.create({
   orderDetailRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: 12,
   },
   orderDetailContent: {
     flex: 1,
@@ -625,9 +636,9 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     backgroundColor: "#f8f9fa",
-    padding: 16,
+    padding: 12,
     borderRadius: 8,
-    marginVertical: 16,
+    marginVertical: 12,
   },
   messageLabel: {
     fontSize: 14,
@@ -646,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E3F2FD",
     padding: 12,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 4,
   },
   completionNoteText: {
     flex: 1,
@@ -657,15 +668,19 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     padding: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
+    backgroundColor: "#fff",
   },
   okButton: {
     backgroundColor: "#7E57C2",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
     borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
   },
   okButtonText: {
     color: "#fff",
