@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -29,6 +29,28 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   onPress,
   onMarkAsRead,
 }) => {
+  // We'll determine if a booking is deleted based on notification age and type
+  // instead of making API calls on every render
+  const isLikelyDeleted = () => {
+    // If it's a booking_completed notification, it's definitely completed
+    if (notification.type === "booking_completed") {
+      return false; // Don't show as deleted since it has its own modal
+    }
+
+    // Check if notification is old (more than 30 days) and might be from a completed booking
+    const notificationDate = new Date(notification.createdAt);
+    const now = new Date();
+    const daysDiff =
+      (now.getTime() - notificationDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Only show as potentially deleted if it's an old customer notification
+    return (
+      daysDiff > 30 &&
+      ["booking_accepted", "booking_rejected"].includes(notification.type)
+    );
+  };
+
+  const isBookingDeleted = isLikelyDeleted();
   const getIconName = (type: string) => {
     switch (type) {
       case "booking_accepted":
@@ -93,21 +115,34 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
       <View style={styles.notificationContent}>
         <View style={styles.iconContainer}>
           <MaterialIcons
-            name={getIconName(notification.type)}
+            name={isBookingDeleted ? "history" : getIconName(notification.type)}
             size={24}
-            color={getIconColor(notification.type)}
+            color={isBookingDeleted ? "#999" : getIconColor(notification.type)}
           />
           {!notification.isRead && <View style={styles.unreadDot} />}
         </View>
 
         <View style={styles.textContainer}>
           <Text
-            style={[styles.title, !notification.isRead && styles.unreadText]}
+            style={[
+              styles.title,
+              !notification.isRead && styles.unreadText,
+              isBookingDeleted && styles.deletedBookingText,
+            ]}
           >
             {notification.title}
+            {isBookingDeleted && " (May be completed)"}
           </Text>
-          <Text style={styles.message} numberOfLines={2}>
-            {notification.message}
+          <Text
+            style={[
+              styles.message,
+              isBookingDeleted && styles.deletedBookingMessage,
+            ]}
+            numberOfLines={2}
+          >
+            {isBookingDeleted
+              ? "This booking may have been completed. Click to check status."
+              : notification.message}
           </Text>
           <Text style={styles.timestamp}>
             {formatDate(notification.createdAt)}
@@ -150,7 +185,7 @@ export default function NotificationsScreen() {
     }, [])
   );
 
-  const handleNotificationPress = (notification: Notification) => {
+  const handleNotificationPress = async (notification: Notification) => {
     // Handle completed orders with modal instead of navigation
     if (notification.type === "booking_completed") {
       setSelectedNotification(notification);
@@ -161,6 +196,62 @@ export default function NotificationsScreen() {
     // Navigate based on notification type and user role
     if (notification.relatedBookingId) {
       try {
+        // First check if the booking still exists before navigating
+        const { bookingService } = await import(
+          "../../services/booking.service"
+        );
+
+        try {
+          await bookingService.getBookingById(notification.relatedBookingId);
+          // Booking exists, proceed with navigation
+        } catch (bookingError: any) {
+          if (bookingError.response?.status === 404) {
+            // Booking was deleted (likely completed)
+            const isCustomerNotification = [
+              "booking_accepted",
+              "booking_rejected",
+              "booking_completed",
+            ].includes(notification.type);
+
+            const title = isCustomerNotification
+              ? "Booking Completed"
+              : "Booking Not Available";
+            const message = isCustomerNotification
+              ? "This booking has been completed and is no longer available for viewing. The rental has been successfully processed."
+              : "This booking has been completed or removed and is no longer available.";
+
+            Alert.alert(title, message, [
+              {
+                text: "View Current Bookings",
+                onPress: () => router.push("/(store)/booking-status"),
+              },
+              {
+                text: "OK",
+                style: "cancel",
+              },
+            ]);
+            return;
+          } else {
+            // Other error, show generic message but don't crash
+            console.error("Error checking booking:", bookingError);
+            Alert.alert(
+              "Connection Error",
+              "Unable to check booking status. Please check your internet connection and try again.",
+              [
+                {
+                  text: "View My Bookings",
+                  onPress: () => router.push("/(store)/booking-status"),
+                },
+                {
+                  text: "OK",
+                  style: "cancel",
+                },
+              ]
+            );
+            return;
+          }
+        }
+
         switch (notification.type) {
           case "new_booking":
             // Seller received a new booking request - go to order details for management
@@ -669,6 +760,7 @@ const styles = StyleSheet.create({
   modalFooter: {
     padding: 20,
     paddingTop: 16,
+    borderRadius: 8,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
     backgroundColor: "#fff",
@@ -686,5 +778,13 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  deletedBookingText: {
+    color: "#999",
+    textDecorationLine: "line-through",
+  },
+  deletedBookingMessage: {
+    color: "#999",
+    fontStyle: "italic",
   },
 });

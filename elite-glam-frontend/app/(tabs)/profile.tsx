@@ -160,7 +160,7 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
             {isLoading ? (
-              <ActivityIndicator size="large" color="#7E57C2" />
+              <ActivityIndicator size="large" color="#00000000" />
             ) : userData?.profile?.photoURL ? (
               <Image
                 source={{ uri: userData.profile.photoURL }}
