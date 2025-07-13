@@ -36,6 +36,23 @@ const STATUS_ICONS = {
 export default function BookingDetailsScreen() {
   const { id } = useLocalSearchParams();
   const [booking, setBooking] = useState<Booking | null>(null);
+
+  // Helper to compute late fee: ₱100 per day overdue beyond a 1-day grace period
+  const calcLateFee = (dueDateStr: string): number => {
+    const due = new Date(dueDateStr);
+    // Zero out time portion for accurate day comparison
+    due.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Calculate difference in days
+    const diffTime = today.getTime() - due.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    // Apply 1-day grace period, then ₱100 per day
+    const daysOverdue = diffDays > 1 ? diffDays - 1 : 0;
+    return daysOverdue * 100;
+  };
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -646,8 +663,52 @@ export default function BookingDetailsScreen() {
           <View style={styles.infoRow}>
             <MaterialIcons name="attach-money" size={20} color="#666" />
             <Text style={styles.infoLabel}>Price:</Text>
-            <Text style={styles.infoText}>${booking.price}</Text>
+            <Text style={styles.infoText}>₱{booking.price}</Text>
           </View>
+
+          {/* Show late fee only if confirmed and actually overdue */}
+          {booking.status === "confirmed" && calcLateFee(booking.date) > 0 && (
+            <View style={styles.infoRow}>
+              <MaterialIcons name="warning" size={20} color="#F44336" />
+              <Text style={styles.infoLabel}>Late Fee:</Text>
+              <Text
+                style={[
+                  styles.infoText,
+                  { color: "#F44336", fontWeight: "600" },
+                ]}
+              >
+                ₱{calcLateFee(booking.date)} (
+                {Math.floor(calcLateFee(booking.date) / 100)} day
+                {Math.floor(calcLateFee(booking.date) / 100) !== 1 ? "s" : ""}{" "}
+                overdue)
+              </Text>
+            </View>
+          )}
+
+          {/* Show total amount if there's a late fee */}
+          {booking.status === "confirmed" && calcLateFee(booking.date) > 0 && (
+            <View
+              style={[
+                styles.infoRow,
+                {
+                  borderTopWidth: 1,
+                  borderTopColor: "#e0e0e0",
+                  paddingTop: 12,
+                  marginTop: 8,
+                },
+              ]}
+            >
+              <MaterialIcons name="attach-money" size={20} color="#333" />
+              <Text style={[styles.infoLabel, { fontWeight: "600" }]}>
+                Total Amount:
+              </Text>
+              <Text
+                style={[styles.infoText, { fontWeight: "700", color: "#333" }]}
+              >
+                ₱{booking.price + calcLateFee(booking.date)}
+              </Text>
+            </View>
+          )}
           {booking.sellerLocation && (
             <View style={styles.infoRow}>
               <MaterialIcons name="store" size={20} color="#666" />
