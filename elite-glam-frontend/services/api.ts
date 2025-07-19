@@ -251,6 +251,23 @@ export const authService = {
         throw new Error("Passwords do not match");
       }
 
+      // Validate role-specific fields
+      if (userData.role === "shop_owner") {
+        if (!userData.shopName) {
+          throw new Error("Shop name is required");
+        }
+        if (!userData.location) {
+          throw new Error("Location is required");
+        }
+      } else if (userData.role === "customer") {
+        if (!userData.firstName) {
+          throw new Error("First name is required");
+        }
+        if (!userData.lastName) {
+          throw new Error("Last name is required");
+        }
+      }
+
       const response = await api.post("/auth/register", userData);
       return response.data;
     } catch (error) {
