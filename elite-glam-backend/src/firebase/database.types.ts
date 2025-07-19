@@ -6,6 +6,8 @@ export interface UserRecord {
   role?: 'admin' | 'customer' | 'shop_owner'; // User role
   createdAt: Date;
   updatedAt: Date;
+  shopName?: string; // Added for shop owners
+  location?: string; // Added for shop owners
   profile?: {
     firstName?: string;
     lastName?: string;
@@ -28,6 +30,10 @@ export interface CreateUserInput {
   email: string;
   password: string;
   role: 'admin' | 'customer' | 'shop_owner'; // Add role here
+  firstName?: string; // For customers
+  lastName?: string; // For customers
+  shopName?: string; // For shop owners
+  location?: string; // For shop owners
 }
 
 // Type for user response (excludes sensitive data)

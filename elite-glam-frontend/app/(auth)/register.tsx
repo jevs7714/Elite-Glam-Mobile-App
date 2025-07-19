@@ -22,6 +22,8 @@ interface FormData {
   passwordConfirm: string;
   firstName: string;
   lastName: string;
+  shopName?: string; // Added for shop owners
+  location?: string; // Added for shop owners
   role: "customer" | "shop_owner"; // Added role
 }
 
@@ -32,6 +34,8 @@ interface FormErrors {
   passwordConfirm?: string;
   firstName?: string;
   lastName?: string;
+  shopName?: string; // Added for shop owners
+  location?: string; // Added for shop owners
   role?: string; // Added role error
   general?: string;
 }
@@ -74,6 +78,8 @@ const Register = () => {
     passwordConfirm: "",
     firstName: "",
     lastName: "",
+    shopName: "", // Added for shop owners
+    location: "", // Added for shop owners
     role: "customer", // Default role
   });
   const [errors, setErrors] = useState<FormErrors>({});
@@ -90,12 +96,24 @@ const Register = () => {
       newErrors.role = "Please select a role";
     }
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    }
+    if (formData.role === "shop_owner") {
+      // Validate shop owner specific fields
+      if (!formData.shopName?.trim()) {
+        newErrors.shopName = "Shop name is required";
+      }
+      
+      if (!formData.location?.trim()) {
+        newErrors.location = "Location is required";
+      }
+    } else {
+      // Validate customer specific fields
+      if (!formData.firstName.trim()) {
+        newErrors.firstName = "First name is required";
+      }
 
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
+      if (!formData.lastName.trim()) {
+        newErrors.lastName = "Last name is required";
+      }
     }
 
     if (!formData.username.trim()) {
@@ -147,13 +165,39 @@ const Register = () => {
     setIsLoading(true);
 
     try {
+      // Prepare registration data based on role
+      let registrationData;
+      
+      if (formData.role === "shop_owner") {
+        // For shop owners, use shopName and location instead of firstName/lastName
+        registrationData = {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          passwordConfirm: formData.passwordConfirm,
+          role: formData.role,
+          shopName: formData.shopName,
+          location: formData.location,
+        };
+      } else {
+        // For customers, use firstName and lastName
+        registrationData = {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          passwordConfirm: formData.passwordConfirm,
+          role: formData.role,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        };
+      }
+      
       console.log("Form validation passed, sending registration data:", {
-        ...formData,
+        ...registrationData,
         password: "***",
         passwordConfirm: "***",
       });
 
-      const registrationData = formData; // Pass the whole formData to include passwordConfirm
       const response = await authService.register(registrationData);
       console.log("Registration successful:", response);
 
@@ -277,21 +321,45 @@ const Register = () => {
               {errors.role && <Text style={styles.roleErrorText}>{errors.role}</Text>}
             </View>
 
-            <FormField
-              label="First Name"
-              value={formData.firstName}
-              onChangeText={handleChange("firstName")}
-              error={errors.firstName}
-              autoCapitalize="words"
-            />
+            {formData.role === "customer" ? (
+              // Customer fields
+              <>
+                <FormField
+                  label="First Name"
+                  value={formData.firstName}
+                  onChangeText={handleChange("firstName")}
+                  error={errors.firstName}
+                  autoCapitalize="words"
+                />
 
-            <FormField
-              label="Last Name"
-              value={formData.lastName}
-              onChangeText={handleChange("lastName")}
-              error={errors.lastName}
-              autoCapitalize="words"
-            />
+                <FormField
+                  label="Last Name"
+                  value={formData.lastName}
+                  onChangeText={handleChange("lastName")}
+                  error={errors.lastName}
+                  autoCapitalize="words"
+                />
+              </>
+            ) : (
+              // Shop owner fields
+              <>
+                <FormField
+                  label="Shop Name"
+                  value={formData.shopName}
+                  onChangeText={handleChange("shopName")}
+                  error={errors.shopName}
+                  autoCapitalize="words"
+                />
+
+                <FormField
+                  label="Location"
+                  value={formData.location}
+                  onChangeText={handleChange("location")}
+                  error={errors.location}
+                  autoCapitalize="words"
+                />
+              </>
+            )}
 
             <FormField
               label="Username"

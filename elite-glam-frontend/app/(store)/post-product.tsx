@@ -14,19 +14,20 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { productsService } from "../../services/products.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { API_URL } from "../../config/api.config";
 
 const categories = ["Gown", "Dress", "Suit", "Sportswear", "Other"] as const;
 
 type Category = (typeof categories)[number];
 
 export default function PostProductScreen() {
+  const params = useLocalSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [images, setImages] = useState<string[]>([]);
@@ -38,6 +39,28 @@ export default function PostProductScreen() {
     category: "",
     quantity: "",
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log("PostProductScreen mounted");
+    console.log("Route params:", params);
+
+    // If editing an existing product, populate the form
+    if (params.id) {
+      console.log("Editing existing product:", params.id);
+      setFormData({
+        name: (params.name as string) || "",
+        price: (params.price as string) || "",
+        description: (params.description as string) || "",
+        category: (params.category as string) || "",
+        quantity: (params.quantity as string) || "",
+      });
+
+      if (params.image) {
+        setImages([params.image as string]);
+      }
+    }
+  }, [params]);
 
   const pickImages = async () => {
     try {
