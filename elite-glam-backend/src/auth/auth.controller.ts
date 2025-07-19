@@ -137,7 +137,12 @@ export class AuthController {
         username: createUserDto.username,
         email: createUserDto.email,
         password: createUserDto.password,
-        role: createUserDto.role, // Pass role to Firebase service
+        role: createUserDto.role,
+        // Pass role-specific fields
+        firstName: createUserDto.firstName,
+        lastName: createUserDto.lastName,
+        shopName: createUserDto.shopName,
+        location: createUserDto.location,
       });
 
       console.log('User created successfully:', {

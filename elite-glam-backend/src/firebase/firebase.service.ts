@@ -198,6 +198,7 @@ export class FirebaseService implements OnModuleInit {
       console.log('Creating user with data:', {
         email: userData.email,
         username: userData.username,
+        role: userData.role,
       });
 
       // Create auth user with Admin SDK
@@ -214,10 +215,23 @@ export class FirebaseService implements OnModuleInit {
         uid: authUser.uid,
         username: userData.username,
         email: userData.email,
-        role: userData.role, // Add role here
+        role: userData.role,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
+      
+      // Add role-specific fields
+      if (userData.role === 'shop_owner') {
+        userRecord.shopName = userData.shopName;
+        userRecord.location = userData.location;
+      } else if (userData.role === 'customer') {
+        // Initialize profile if it doesn't exist
+        if (!userRecord.profile) {
+          userRecord.profile = {};
+        }
+        userRecord.profile.firstName = userData.firstName;
+        userRecord.profile.lastName = userData.lastName;
+      }
 
       // Save to Firestore
       await this.db.collection('users').doc(authUser.uid).set(userRecord);

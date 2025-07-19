@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, ValidateIf } from 'class-validator';
 import { IsStrongPassword } from './password.validator';
 import { Match } from './match.decorator';
 
@@ -20,4 +20,24 @@ export class CreateUserDto {
 
   @IsString()
   role: 'customer' | 'shop_owner' | 'admin';
+
+  @IsString()
+  @ValidateIf(o => o.role === 'customer')
+  @IsOptional()
+  firstName?: string;
+
+  @IsString()
+  @ValidateIf(o => o.role === 'customer')
+  @IsOptional()
+  lastName?: string;
+
+  @IsString()
+  @ValidateIf(o => o.role === 'shop_owner')
+  @IsOptional()
+  shopName?: string;
+
+  @IsString()
+  @ValidateIf(o => o.role === 'shop_owner')
+  @IsOptional()
+  location?: string;
 }

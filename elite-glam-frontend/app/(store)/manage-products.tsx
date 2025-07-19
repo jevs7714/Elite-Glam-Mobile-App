@@ -131,21 +131,27 @@ export default function ManageProductsScreen() {
   );
 
   const handleEditProduct = (product: Product) => {
-    router.push({
-      pathname: "/(store)/post-product",
-      params: {
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price.toString(),
-        image: product.image || "",
-        category: product.category,
-        quantity: product.quantity.toString(),
-        condition: product.condition || "",
-        sellerMessage: product.sellerMessage || "",
-        rentAvailable: product.rentAvailable?.toString() || "false",
-      },
-    });
+    try {
+      console.log("Navigating to edit product:", product.id);
+      router.push({
+        pathname: "/(store)/post-product",
+        params: {
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          price: product.price.toString(),
+          image: product.image || "",
+          category: product.category,
+          quantity: product.quantity.toString(),
+          condition: product.condition || "",
+          sellerMessage: product.sellerMessage || "",
+          rentAvailable: product.rentAvailable?.toString() || "false",
+        },
+      });
+    } catch (error) {
+      console.error("Error navigating to edit product:", error);
+      Alert.alert("Navigation Error", "Failed to open product editor");
+    }
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -245,7 +251,15 @@ export default function ManageProductsScreen() {
         <Text style={styles.emptyText}>No products found</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => router.push("/(store)/post-product")}
+          onPress={() => {
+            try {
+              console.log("Navigating to add new product from empty state");
+              router.push("/(store)/post-product");
+            } catch (error) {
+              console.error("Error navigating to add product:", error);
+              Alert.alert("Navigation Error", "Failed to open product form");
+            }
+          }}
         >
           <Text style={styles.addButtonText}>Add New Product</Text>
         </TouchableOpacity>
@@ -265,7 +279,18 @@ export default function ManageProductsScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => router.push("/(store)/post-product")}
+          onPress={() => {
+            try {
+              console.log("Navigating to add new product from header");
+              router.push("/(store)/post-product");
+            } catch (error) {
+              console.error(
+                "Error navigating to add product from header:",
+                error
+              );
+              Alert.alert("Navigation Error", "Failed to open product form");
+            }
+          }}
         >
           <MaterialIcons name="add" size={24} color="#fff" />
         </TouchableOpacity>
