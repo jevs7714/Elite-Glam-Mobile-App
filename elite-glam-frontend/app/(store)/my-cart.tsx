@@ -279,7 +279,7 @@ export default function MyCartScreen() {
               onPress={() => removeCartItem(item.id)}
               disabled={isProcessing}
             >
-              <MaterialIcons name="delete-outline" size={20} color="#ff4444" />
+              <MaterialIcons name="delete" size={16} color="#E53E3E" />
               <Text style={styles.removeButtonText}>Remove</Text>
             </TouchableOpacity>
 
@@ -295,7 +295,7 @@ export default function MyCartScreen() {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Ionicons name="calendar" size={20} color="#fff" />
+                  <Ionicons name="calendar" size={16} color="#fff" />
                   <Text style={styles.rentButtonText}>Rent Now</Text>
                 </>
               )}
@@ -550,41 +550,51 @@ const styles = StyleSheet.create({
   },
   cartItemActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    marginTop: 16,
+    gap: 12,
   },
   removeButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    justifyContent: "center",
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ff4444",
+    borderColor: "#E53E3E",
+    borderRadius: 10,
+    paddingVertical: 10,
   },
   removeButtonText: {
-    color: "#ff4444",
-    fontSize: 14,
-    fontWeight: "500",
+    color: "#E53E3E",
     marginLeft: 4,
+    fontWeight: "600",
+    fontSize: 14,
   },
   rentButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    backgroundColor: "#6B46C1",
+    justifyContent: "center",
+    backgroundColor: "#7E57C2",
+    borderRadius: 10,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.23,
+    shadowRadius: 2.62,
+    elevation: 4,
   },
   rentButtonDisabled: {
     opacity: 0.7,
   },
   rentButtonText: {
     color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
     marginLeft: 4,
+    fontWeight: "600",
+    fontSize: 14,
   },
   rentLaterGrid: {
     flexDirection: "row",
