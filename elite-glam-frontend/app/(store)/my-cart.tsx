@@ -60,19 +60,6 @@ export default function MyCartScreen() {
     loadCartData().finally(() => setRefreshing(false));
   }, []);
 
-  const updateCartItemQuantity = async (
-    cartItemId: string,
-    newQuantity: number
-  ) => {
-    try {
-      await cartService.updateCartItemQuantity(cartItemId, newQuantity);
-      await loadCartData(); // Reload to get updated data
-    } catch (error) {
-      console.error("Error updating cart item quantity:", error);
-      Alert.alert("Error", "Failed to update quantity");
-    }
-  };
-
   const removeCartItem = async (cartItemId: string) => {
     try {
       await cartService.removeFromCart(cartItemId);
@@ -242,35 +229,6 @@ export default function MyCartScreen() {
             </Text>
           </View>
 
-          {/* Quantity Controls */}
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity
-              style={[
-                styles.quantityButton,
-                item.quantity <= 1 && styles.quantityButtonDisabled,
-              ]}
-              onPress={() =>
-                updateCartItemQuantity(item.id, Math.max(1, item.quantity - 1))
-              }
-              disabled={item.quantity <= 1 || isProcessing}
-            >
-              <AntDesign
-                name="minus"
-                size={16}
-                color={item.quantity <= 1 ? "#ccc" : "#666"}
-              />
-            </TouchableOpacity>
-
-            <Text style={styles.quantityText}>{item.quantity}</Text>
-
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={() => updateCartItemQuantity(item.id, item.quantity + 1)}
-              disabled={isProcessing}
-            >
-              <AntDesign name="plus" size={16} color="#666" />
-            </TouchableOpacity>
-          </View>
 
           {/* Action Buttons */}
           <View style={styles.cartItemActions}>
@@ -524,30 +482,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
   },
-  quantityContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  quantityButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 8,
-  },
-  quantityButtonDisabled: {
-    backgroundColor: "#f8f8f8",
-  },
-  quantityText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    minWidth: 30,
-    textAlign: "center",
-  },
+
   cartItemActions: {
     flexDirection: "row",
     marginTop: 16,
