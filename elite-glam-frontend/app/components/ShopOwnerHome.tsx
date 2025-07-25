@@ -39,8 +39,17 @@ const STATUS_ICONS = {
   rejected: "close" as const,
 } as const;
 
+interface GroupedOrder {
+  productName: string;
+  productImage?: string;
+  orders: Booking[];
+}
+
 export default function ShopOwnerHome() {
-  const [orders, setOrders] = useState<Booking[]>([]);
+  const [groupedOrders, setGroupedOrders] = useState<GroupedOrder[]>([]);
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(
+    new Set()
+  );
   const [loading, setLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -104,7 +113,7 @@ export default function ShopOwnerHome() {
 
       if (!currentUser) {
         console.error("No current user found");
-        setOrders([]);
+        setGroupedOrders([]);
         return;
       }
 
@@ -119,31 +128,41 @@ export default function ShopOwnerHome() {
 
       if (!data || !Array.isArray(data)) {
         console.error("Invalid data received:", data);
-        setOrders([]);
+        setGroupedOrders([]);
         return;
       }
 
       // Only filter out cancelled bookings, show all other bookings
       const activeOrders = data.filter((order) => order.status !== "cancelled");
-      console.log("Active orders:", activeOrders); // Debug log
 
-      // Calculate pagination
+      // Group orders by product name
+      const ordersByProduct = activeOrders.reduce((acc, order) => {
+        const key = order.serviceName || "Uncategorized";
+        if (!acc[key]) {
+          acc[key] = {
+            productName: key,
+            productImage: order.productImage,
+            orders: [],
+          };
+        }
+        acc[key].orders.push(order);
+        return acc;
+      }, {} as Record<string, GroupedOrder>);
+
+      const newGroupedOrders = Object.values(ordersByProduct);
+
+      // Simple pagination for grouped products - can be refined if needed
       const startIndex = (pageNumber - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-      const paginatedOrders = activeOrders.slice(startIndex, endIndex);
-      console.log("Paginated orders:", paginatedOrders); // Debug log
+      const paginatedGroups = newGroupedOrders.slice(startIndex, endIndex);
 
-      if (paginatedOrders.length < ITEMS_PER_PAGE) {
+      if (paginatedGroups.length < ITEMS_PER_PAGE) {
         setHasMore(false);
       }
 
-      setOrders((prevOrders) => {
-        const newOrders = shouldRefresh
-          ? paginatedOrders
-          : [...prevOrders, ...paginatedOrders];
-        console.log("Updated orders state:", newOrders); // Debug log
-        return newOrders;
-      });
+      setGroupedOrders((prevGroups) =>
+        shouldRefresh ? paginatedGroups : [...prevGroups, ...paginatedGroups]
+      );
     } catch (error: any) {
       console.error("Error fetching orders:", error);
       if (error.response?.status === 401) {
@@ -153,7 +172,7 @@ export default function ShopOwnerHome() {
       } else {
         Alert.alert("Error", "Failed to load orders. Please try again later.");
       }
-      setOrders([]); // Clear orders on error
+      setGroupedOrders([]); // Clear orders on error
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -167,7 +186,7 @@ export default function ShopOwnerHome() {
       fetchOrders(1, true);
     } else {
       console.log("No current user, clearing orders");
-      setOrders([]);
+      setGroupedOrders([]);
     }
   }, [currentUser]);
 
@@ -232,12 +251,17 @@ export default function ShopOwnerHome() {
               Alert.alert("Success", successMessage);
 
               // Immediately update the local state to reflect the change
-              setOrders((prevOrders) => {
-                return prevOrders.map((order) => {
-                  if (order.id === orderId) {
-                    return { ...order, status: newStatus };
-                  }
-                  return order;
+              setGroupedOrders((prevGroupedOrders) => {
+                return prevGroupedOrders.map((group) => {
+                  return {
+                    ...group,
+                    orders: group.orders.map((order) => {
+                      if (order.id === orderId) {
+                        return { ...order, status: newStatus };
+                      }
+                      return order;
+                    }),
+                  };
                 });
               });
             } catch (error) {
@@ -253,20 +277,39 @@ export default function ShopOwnerHome() {
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.id.toLowerCase().includes(searchQuery.toLowerCase());
+  const toggleProductExpansion = (productName: string) => {
+    setExpandedProducts((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productName)) {
+        newSet.delete(productName);
+      } else {
+        newSet.add(productName);
+      }
+      return newSet;
+    });
+  };
 
-    // If a specific status is selected, only show orders with that status
-    // Otherwise, show all non-cancelled orders
-    const matchesStatus = selectedStatus
-      ? order.status === selectedStatus
-      : true;
+  const filteredGroupedOrders = groupedOrders
+    .map((group) => {
+      // Filter orders within the group first
+      const filteredOrdersInGroup = group.orders.filter((order) => {
+        const matchesSearch =
+          order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.serviceName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          order.id.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = selectedStatus
+          ? order.status === selectedStatus
+          : true;
+        return matchesSearch && matchesStatus;
+      });
 
-    return matchesSearch && matchesStatus;
-  });
+      // If the group has orders after filtering, return it
+      if (filteredOrdersInGroup.length > 0) {
+        return { ...group, orders: filteredOrdersInGroup };
+      }
+      return null;
+    })
+    .filter((group): group is GroupedOrder => group !== null);
 
   const renderStatusFilter = () => (
     <View style={styles.filterContainer}>
@@ -313,6 +356,15 @@ export default function ShopOwnerHome() {
     </View>
   );
 
+  const renderEmptyList = () => (
+    <View style={styles.centeredContainer}>
+      <MaterialIcons name="inbox" size={64} color="#ccc" />
+      <Text style={styles.noOrdersText}>
+        No orders found for the selected criteria.
+      </Text>
+    </View>
+  );
+
   const renderFooter = () => {
     if (!isLoadingMore) return null;
     return (
@@ -324,16 +376,18 @@ export default function ShopOwnerHome() {
   };
 
   const renderOrderItem = ({ item: order }: { item: Booking }) => (
-    <TouchableOpacity
-      onPress={() =>
-        router.push({
-          pathname: "/(store)/order-details",
-          params: { id: order.id },
-        })
-      }
-      style={styles.orderCard}
-    >
-      <View style={styles.orderContent}>
+    // This renders the individual order card, slightly modified to fit inside the group
+    // The main TouchableOpacity is removed from here as the parent will handle navigation
+    <View style={styles.orderCardInner}>
+      <TouchableOpacity
+        onPress={() =>
+          router.push({
+            pathname: "/(store)/order-details",
+            params: { id: order.id },
+          })
+        }
+        style={styles.orderContent}
+      >
         <View style={styles.imageContainer}>
           {order.productImage ? (
             <Image
@@ -355,15 +409,14 @@ export default function ShopOwnerHome() {
         <View style={styles.orderInfo}>
           <View style={styles.headerRow}>
             <View style={styles.titleContainer}>
+              {/* Service name is now in the group header, so we show customer name here */}
               <Text style={styles.serviceName} numberOfLines={1}>
-                {order.serviceName
-                  ? order.serviceName
-                  : "Product not Available"}
+                {order.customerName}
               </Text>
               <View style={styles.customerInfo}>
-                <MaterialIcons name="person" size={14} color="#666" />
+                <MaterialIcons name="event-note" size={14} color="#666" />
                 <Text style={styles.customerName} numberOfLines={1}>
-                  {order.customerName}
+                  ID: {order.id.substring(0, 8)}...
                 </Text>
               </View>
             </View>
@@ -394,29 +447,82 @@ export default function ShopOwnerHome() {
             </View>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* Action Buttons */}
       {order.status === "pending" && (
-        <View style={styles.actionButtonsContainer}>
+        <View style={styles.actionButtons}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.confirmButton]}
+            style={[styles.button, styles.confirmButton]}
             onPress={() => handleStatusUpdate(order.id, "confirmed")}
           >
             <MaterialIcons name="check" size={18} color="white" />
-            <Text style={styles.actionButtonText}>Confirm</Text>
+            <Text style={styles.buttonText}>Confirm</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
+            style={[styles.button, styles.rejectButton]}
             onPress={() => handleStatusUpdate(order.id, "rejected")}
           >
             <MaterialIcons name="close" size={18} color="white" />
-            <Text style={styles.actionButtonText}>Reject</Text>
+            <Text style={styles.buttonText}>Reject</Text>
           </TouchableOpacity>
         </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
+
+  const renderProductGroup = ({ item: group }: { item: GroupedOrder }) => {
+    const isExpanded = expandedProducts.has(group.productName);
+    const pendingOrderCount = group.orders.filter(
+      (o) => o.status === "pending"
+    ).length;
+
+    return (
+      <View style={styles.productGroupContainer}>
+        <TouchableOpacity
+          style={styles.productGroupHeader}
+          onPress={() => toggleProductExpansion(group.productName)}
+        >
+          <View style={styles.productGroupInfo}>
+            <Image
+              source={{
+                uri: group.productImage || "https://via.placeholder.com/150",
+              }}
+              style={styles.productGroupImage}
+            />
+            <View style={styles.productGroupTextContainer}>
+              <Text style={styles.productGroupName}>{group.productName}</Text>
+              <Text style={styles.productOrderCount}>
+                {group.orders.length} Order(s) total
+                {pendingOrderCount > 0 ? `, ${pendingOrderCount} pending` : ""}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.productGroupCTA}>
+            {pendingOrderCount > 0 && (
+              <View style={styles.pendingBadge}>
+                <Text style={styles.pendingBadgeText}>{pendingOrderCount}</Text>
+              </View>
+            )}
+            <MaterialIcons
+              name={isExpanded ? "expand-less" : "expand-more"}
+              size={28}
+              color="#6B4EFF"
+            />
+          </View>
+        </TouchableOpacity>
+        {isExpanded && (
+          <View style={styles.ordersListContainer}>
+            {group.orders.map((order) => (
+              <View key={order.id}>{renderOrderItem({ item: order })}</View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+
 
   if (loading) {
     return (
@@ -451,19 +557,17 @@ export default function ShopOwnerHome() {
 
       {renderStatusFilter()}
 
-      {filteredOrders.length === 0 ? (
+      {loading ? (
         <View style={styles.centeredContainer}>
-          <MaterialIcons name="inbox" size={64} color="#ccc" />
-          <Text style={styles.noOrdersText}>
-            No orders found for the selected criteria.
-          </Text>
+          <ActivityIndicator size="large" color="#6B4EFF" />
         </View>
       ) : (
         <FlatList
-          data={filteredOrders}
-          renderItem={renderOrderItem}
-          keyExtractor={(item) => item.id}
+          data={filteredGroupedOrders}
+          renderItem={renderProductGroup}
+          keyExtractor={(item) => item.productName}
           contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={renderEmptyList}
           onRefresh={() => fetchOrders(1, true)}
           refreshing={refreshing}
           onEndReached={loadMore}
@@ -476,6 +580,107 @@ export default function ShopOwnerHome() {
 }
 
 const styles = StyleSheet.create({
+  productGroupContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginVertical: 8,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  productGroupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+  },
+  productGroupInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  productGroupImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 16,
+  },
+  productGroupTextContainer: {
+    flex: 1,
+  },
+  productGroupName: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  productOrderCount: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 2,
+  },
+  productGroupCTA: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  pendingBadge: {
+    backgroundColor: "#FFA500",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  pendingBadgeText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  ordersListContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  orderCardInner: {
+    // Styles for the order card when it's inside a group
+    marginVertical: 8,
+    backgroundColor: "#fafafa",
+    borderRadius: 8,
+    padding: 0, // Padding is handled by children
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
+  buttonText: {
+    color: "white",
+    marginLeft: 6,
+    fontWeight: "bold",
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50", // Green
+  },
+  rejectButton: {
+    backgroundColor: "#F44336", // Red
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -653,30 +858,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     marginLeft: 8,
-  },
-  actionButtonsContainer: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  actionButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginLeft: 6,
-  },
-  confirmButton: {
-    backgroundColor: "#4CAF50",
-  },
-  rejectButton: {
-    backgroundColor: "#F44336",
   },
   loadingMoreContainer: {
     paddingVertical: 20,
