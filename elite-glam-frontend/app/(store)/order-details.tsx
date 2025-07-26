@@ -58,7 +58,7 @@ export default function OrderDetailsScreen() {
     return daysOverdue * 100;
   };
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectionMessage, setRejectionMessage] = useState("");
@@ -143,7 +143,7 @@ export default function OrderDetailsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              setActionLoading(true);
+              setLoadingAction("cancel");
 
               // Restore the product quantity since the booking is being cancelled
               if (booking.productId && booking.quantity) {
@@ -199,7 +199,7 @@ export default function OrderDetailsScreen() {
                 "Failed to cancel order. Please try again later."
               );
             } finally {
-              setActionLoading(false);
+              setLoadingAction(null);
             }
           },
         },
@@ -210,7 +210,7 @@ export default function OrderDetailsScreen() {
   const handleConfirmBooking = async () => {
     if (!booking) return;
     try {
-      setActionLoading(true);
+      setLoadingAction("confirm");
       await bookingService.updateBookingStatus(booking.id, "confirmed");
       Alert.alert("Success", "Order has been confirmed successfully");
       fetchBookingDetails();
@@ -218,14 +218,14 @@ export default function OrderDetailsScreen() {
       console.error("Error confirming order:", error);
       Alert.alert("Error", "Failed to confirm order. Please try again later.");
     } finally {
-      setActionLoading(false);
+      setLoadingAction(null);
     }
   };
 
   const handleRejectBooking = async (rejectionMessage: string) => {
     if (!booking) return;
     try {
-      setActionLoading(true);
+      setLoadingAction("reject");
       await bookingService.updateBookingStatus(
         booking.id,
         "rejected",
@@ -239,7 +239,7 @@ export default function OrderDetailsScreen() {
       console.error("Error rejecting order:", error);
       Alert.alert("Error", "Failed to reject order. Please try again later.");
     } finally {
-      setActionLoading(false);
+      setLoadingAction(null);
     }
   };
 
@@ -258,7 +258,7 @@ export default function OrderDetailsScreen() {
           text: "Yes, Complete",
           onPress: async () => {
             try {
-              setActionLoading(true);
+              setLoadingAction("complete");
 
               // First, restore the product quantity since items are being returned
               if (booking.productId && booking.quantity) {
@@ -322,7 +322,7 @@ export default function OrderDetailsScreen() {
                 "Failed to complete order. Please try again later."
               );
             } finally {
-              setActionLoading(false);
+              setLoadingAction(null);
             }
           },
         },
@@ -346,7 +346,7 @@ export default function OrderDetailsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              setActionLoading(true);
+              setLoadingAction("delete");
               await bookingService.deleteBooking(booking.id);
               Alert.alert(
                 "Success",
@@ -365,7 +365,7 @@ export default function OrderDetailsScreen() {
                 "Failed to delete order. Please try again later."
               );
             } finally {
-              setActionLoading(false);
+              setLoadingAction(null);
             }
           },
         },
@@ -508,9 +508,9 @@ export default function OrderDetailsScreen() {
                   handleRejectBooking(rejectionMessage);
                 }
               }}
-              disabled={!rejectionMessage.trim() || actionLoading}
+              disabled={!rejectionMessage.trim() || !!loadingAction}
             >
-              {actionLoading ? (
+              {loadingAction === 'reject' ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <Text style={styles.modalButtonText}>Reject Order</Text>
@@ -548,9 +548,9 @@ export default function OrderDetailsScreen() {
             <TouchableOpacity
               style={[styles.actionButton, styles.deleteButton]}
               onPress={handleDeleteBooking}
-              disabled={actionLoading}
+              disabled={!!loadingAction}
             >
-              {actionLoading ? (
+              {loadingAction === 'delete' ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>
@@ -597,9 +597,9 @@ export default function OrderDetailsScreen() {
                   ]
                 );
               }}
-              disabled={actionLoading}
+              disabled={!!loadingAction}
             >
-              {actionLoading ? (
+              {loadingAction === 'confirm' ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>
@@ -612,16 +612,12 @@ export default function OrderDetailsScreen() {
             <TouchableOpacity
               style={[styles.actionButton, styles.rejectButton]}
               onPress={() => setIsRejectModalOpen(true)}
-              disabled={actionLoading}
+              disabled={!!loadingAction}
             >
-              {actionLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <>
-                  <MaterialIcons name="close" size={20} color="white" />
-                  <Text style={styles.actionButtonText}>Reject Order</Text>
-                </>
-              )}
+              <>
+                <MaterialIcons name="close" size={20} color="white" />
+                <Text style={styles.actionButtonText}>Reject Order</Text>
+              </>
             </TouchableOpacity>
           </ScrollView>
           <View style={styles.scrollOverlay} pointerEvents="none" />
@@ -654,9 +650,9 @@ export default function OrderDetailsScreen() {
             <TouchableOpacity
               style={[styles.actionButton, styles.completeButton]}
               onPress={handleCompleteBooking}
-              disabled={actionLoading}
+              disabled={!!loadingAction}
             >
-              {actionLoading ? (
+              {loadingAction === 'complete' ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <>

@@ -261,7 +261,7 @@ export default function ManageProductsScreen() {
             }
           }}
         >
-          <Text style={styles.addButtonText}>Add New Product</Text>
+          <Text style={styles.addButton}>Add New Product</Text>
         </TouchableOpacity>
       </View>
     );
@@ -269,32 +269,7 @@ export default function ManageProductsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            try {
-              console.log("Navigating to add new product from header");
-              router.push("/(store)/post-product");
-            } catch (error) {
-              console.error(
-                "Error navigating to add product from header:",
-                error
-              );
-              Alert.alert("Navigation Error", "Failed to open product form");
-            }
-          }}
-        >
-          <MaterialIcons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -346,6 +321,21 @@ export default function ManageProductsScreen() {
           ) : null
         }
       />
+
+      {/* FAB to add new product */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => {
+          try {
+            router.push("/(store)/post-product");
+          } catch (error) {
+            console.error("Error navigating to add product from FAB:", error);
+            Alert.alert("Navigation Error", "Failed to open product form");
+          }
+        }}
+      >
+        <MaterialIcons name="add" size={30} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -390,19 +380,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    backgroundColor: "#fff",
-  },
-  backButton: {
-    padding: 8,
-  },
+
+
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
@@ -499,10 +478,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   deleteButton: {
-    flex: 1,
-    backgroundColor: "#FF3B30",
-    padding: 8,
-    borderRadius: 6,
     alignItems: "center",
   },
   emptyContainer: {
@@ -517,11 +492,7 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+
   loginButton: {
     marginTop: 16,
     padding: 12,
@@ -538,8 +509,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingMoreText: {
-    marginTop: 8,
+    marginLeft: 10,
     fontSize: 14,
     color: "#666",
+  },
+  fab: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    right: 20,
+    bottom: 20,
+    backgroundColor: "#6B3FA0",
+    borderRadius: 30,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
 });
