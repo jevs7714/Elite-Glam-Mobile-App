@@ -10,6 +10,8 @@ import {
   Alert,
   Platform,
   Image,
+  UIManager,
+  LayoutAnimation,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -43,6 +45,14 @@ interface GroupedOrder {
   productName: string;
   productImage?: string;
   orders: Booking[];
+}
+
+// Enable LayoutAnimation for Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 export default function ShopOwnerHome() {
@@ -278,6 +288,8 @@ export default function ShopOwnerHome() {
   };
 
   const toggleProductExpansion = (productName: string) => {
+    // Add a smooth animation for expanding/collapsing
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedProducts((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(productName)) {
@@ -386,22 +398,18 @@ export default function ShopOwnerHome() {
             params: { id: order.id },
           })
         }
-        style={styles.orderContent}
+        style={styles.orderTouchableContent}
       >
-        <View style={styles.imageContainer}>
+        <View style={styles.orderItemImageContainer}>
           {order.productImage ? (
             <Image
               source={{ uri: order.productImage }}
-              style={styles.productImage}
+              style={styles.orderItemImage}
               resizeMode="cover"
             />
           ) : (
-            <View style={styles.noImageContainer}>
-              <MaterialIcons
-                name="image-not-supported"
-                size={24}
-                color="#ccc"
-              />
+            <View style={styles.orderItemImagePlaceholder}>
+              <MaterialIcons name="photo-size-select-actual" size={20} color="#a0a0a0" />
             </View>
           )}
         </View>
@@ -410,12 +418,12 @@ export default function ShopOwnerHome() {
           <View style={styles.headerRow}>
             <View style={styles.titleContainer}>
               {/* Service name is now in the group header, so we show customer name here */}
-              <Text style={styles.serviceName} numberOfLines={1}>
+              <Text style={styles.orderCustomerName} numberOfLines={1}>
                 {order.customerName}
               </Text>
-              <View style={styles.customerInfo}>
-                <MaterialIcons name="event-note" size={14} color="#666" />
-                <Text style={styles.customerName} numberOfLines={1}>
+              <View style={styles.orderIdContainer}>
+                <MaterialIcons name="receipt" size={14} color="#666" />
+                <Text style={styles.orderIdText} numberOfLines={1}>
                   ID: {order.id.substring(0, 8)}...
                 </Text>
               </View>
@@ -646,11 +654,12 @@ const styles = StyleSheet.create({
     borderTopColor: "#f0f0f0",
   },
   orderCardInner: {
-    // Styles for the order card when it's inside a group
     marginVertical: 8,
-    backgroundColor: "#fafafa",
     borderRadius: 8,
-    padding: 0, // Padding is handled by children
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eef0f2",
+    backgroundColor: "#fff",
   },
   actionButtons: {
     flexDirection: "row",
@@ -660,7 +669,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#eee",
   },
-
   button: {
     flexDirection: "row",
     alignItems: "center",
@@ -680,7 +688,6 @@ const styles = StyleSheet.create({
   rejectButton: {
     backgroundColor: "#F44336", // Red
   },
-
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -769,105 +776,93 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  orderCard: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: Platform.OS === "android" ? "hidden" : "visible",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  orderContent: {
+  orderTouchableContent: {
     flexDirection: "row",
-    padding: 12,
+    alignItems: "center",
   },
-  imageContainer: {
-    width: 70,
-    height: 70,
+  orderItemImageContainer: {
+    width: 50,
+    height: 50,
     borderRadius: 8,
     overflow: "hidden",
     marginRight: 12,
     backgroundColor: "#f0f0f0",
   },
-  productImage: {
+  orderItemImage: {
     width: "100%",
     height: "100%",
   },
-  noImageContainer: {
+  orderItemImagePlaceholder: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#e9ecef",
   },
+  loadingMoreContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#666',
+  },
   orderInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 8,
   },
   titleContainer: {
     flex: 1,
     marginRight: 8,
   },
-  serviceName: {
+  orderCustomerName: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  customerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  orderIdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
-  customerName: {
-    fontSize: 14,
-    color: "#555",
+  orderIdText: {
+    fontSize: 12,
+    color: '#777',
     marginLeft: 4,
-    flexShrink: 1,
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 12,
-    alignSelf: "flex-start",
   },
   statusText: {
-    color: "white",
+    color: 'white',
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginLeft: 4,
   },
   detailsContainer: {
-    marginTop: 4,
+    marginTop: 8,
   },
   detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 4,
   },
   detailText: {
-    fontSize: 13,
-    color: "#666",
-    marginLeft: 8,
-  },
-  loadingMoreContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  loadingMoreText: {
-    marginLeft: 10,
-    color: "#666",
     fontSize: 14,
+    color: '#555',
+    marginLeft: 8,
   },
 });
