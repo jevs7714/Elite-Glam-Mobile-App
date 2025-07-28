@@ -465,14 +465,14 @@ export default function ShopOwnerHome() {
             onPress={() => handleStatusUpdate(order.id, "confirmed")}
           >
             <MaterialIcons name="check" size={18} color="white" />
-            <Text style={styles.buttonText}>Confirm</Text>
+            <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.button, styles.rejectButton]}
             onPress={() => handleStatusUpdate(order.id, "rejected")}
           >
-            <MaterialIcons name="close" size={18} color="white" />
-            <Text style={styles.buttonText}>Reject</Text>
+            <MaterialIcons name="close" size={18} color="#F44336" />
+            <Text style={styles.rejectButtonText}>Reject</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -677,16 +677,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginLeft: 8,
   },
-  buttonText: {
-    color: "white",
-    marginLeft: 6,
-    fontWeight: "bold",
-  },
   confirmButton: {
     backgroundColor: "#4CAF50", // Green
   },
   rejectButton: {
-    backgroundColor: "#F44336", // Red
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#F44336",
+  },
+  confirmButtonText: {
+    color: "white",
+    marginLeft: 6,
+    fontWeight: "bold",
+  },
+  rejectButtonText: {
+    color: "#F44336",
+    marginLeft: 6,
+    fontWeight: "bold",
   },
   container: {
     flex: 1,
