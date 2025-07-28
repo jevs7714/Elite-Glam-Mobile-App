@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
@@ -28,6 +29,18 @@ export default function RootLayout() {
   const [authChecked, setAuthChecked] = useState(false);
   const navRouter = useRouter();
   const segments = useSegments();
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        // Force a re-render or reset layout when app becomes active
+        setAuthChecked(false); // This will trigger the auth check again
+        setTimeout(() => setAuthChecked(true), 0); // Re-enable after a tick
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -82,7 +95,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaView style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top','bottom', 'left', 'right']}>
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />
