@@ -1,6 +1,6 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, StatusBar, Platform } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as SplashScreen from "expo-splash-screen";
@@ -31,11 +31,18 @@ export default function RootLayout() {
   const segments = useSegments();
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') {
-        // Force a re-render or reset layout when app becomes active
-        setAuthChecked(false); // This will trigger the auth check again
-        setTimeout(() => setAuthChecked(true), 0); // Re-enable after a tick
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        // Instead of restarting the app, just update the status bar
+        if (Platform.OS === "android") {
+          // Force status bar to update by toggling it
+          StatusBar.setHidden(true);
+          setTimeout(() => {
+            StatusBar.setHidden(false);
+            StatusBar.setBackgroundColor("#000000");
+            StatusBar.setBarStyle("light-content");
+          }, 100);
+        }
       }
     });
 
@@ -87,15 +94,28 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, authChecked]);
 
+  // Set status bar configuration on initial load
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      StatusBar.setBackgroundColor("#000000");
+      StatusBar.setBarStyle("light-content");
+      StatusBar.setTranslucent(false);
+    }
+  }, []);
+
   if (!fontsLoaded || !authChecked) {
     return <LoadingScreen />;
   }
 
   return (
     <SafeAreaProvider>
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <SafeAreaView style={{ flex: 1 }} edges={['top','bottom', 'left', 'right']}>
+          <SafeAreaView
+            style={{ flex: 1 }}
+            edges={["top", "bottom", "left", "right"]}
+          >
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />
