@@ -11,7 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   splash: {
     image: './assets/images/logo.png',
     resizeMode: 'contain',
-    backgroundColor: '#7E57C2'
+    backgroundColor: '#FFFFFF'
   },
   assetBundlePatterns: [
     '**/*'
@@ -23,7 +23,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
-      backgroundColor: '#7E57C2'
+      backgroundColor: '#FFFFFF'
     },
     package: 'com.eliteglam.app'
   },
