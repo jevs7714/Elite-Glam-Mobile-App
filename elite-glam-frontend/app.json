@@ -25,7 +25,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your products.",
+          "cameraPermission": "The app accesses your camera to let you take photos for your products."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -42,7 +48,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7fad2dca-115c-4dde-930b-4d8b63fb15f5"
+        "projectId": "f5101e61-8562-459b-afe5-fd62a4ba54ae"
       }
     }
   }
