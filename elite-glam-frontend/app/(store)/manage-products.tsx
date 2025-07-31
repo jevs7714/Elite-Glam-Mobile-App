@@ -14,9 +14,9 @@ import {
 import React, { useState, useEffect, useCallback } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { api } from "@/services/api";
+import { api } from "../../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { productsService, Product } from "@/services/products.service";
+import { productsService, Product } from "../../services/products.service";
 
 interface ProductFormData {
   name: string;
