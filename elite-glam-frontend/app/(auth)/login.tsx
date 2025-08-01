@@ -182,7 +182,10 @@ const Login = () => {
               error={errors.password}
             />
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity 
+              style={styles.forgotPassword}
+              onPress={() => router.push('/(auth)/forgot-password' as Href<any>)}
+            >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 

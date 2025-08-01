@@ -541,4 +541,78 @@ export class FirebaseService implements OnModuleInit {
       throw new Error('Failed to update user profile');
     }
   }
+
+  // Password Reset Methods
+  private resetCodes = new Map<string, { code: string; expires: Date }>();
+
+  async sendPasswordResetCode(email: string): Promise<void> {
+    try {
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store code temporarily
+      this.resetCodes.set(email, { code, expires });
+
+      // Import EmailService dynamically to avoid circular dependency
+      const { EmailService } = await import('../email/email.service');
+      const emailService = new EmailService(this.configService);
+      
+      await emailService.sendPasswordResetCode(email, code);
+      
+      console.log('Password reset code sent to:', email);
+    } catch (error) {
+      console.error('Error sending password reset code:', error);
+      throw new Error('Failed to send password reset code');
+    }
+  }
+
+  async verifyPasswordResetCode(email: string, code: string): Promise<boolean> {
+    try {
+      const storedData = this.resetCodes.get(email);
+      
+      if (!storedData) {
+        return false;
+      }
+
+      if (new Date() > storedData.expires) {
+        this.resetCodes.delete(email);
+        return false;
+      }
+
+      return storedData.code === code;
+    } catch (error) {
+      console.error('Error verifying reset code:', error);
+      return false;
+    }
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    try {
+      // Verify the code first
+      const isValidCode = await this.verifyPasswordResetCode(email, code);
+      if (!isValidCode) {
+        throw new Error('Invalid or expired verification code');
+      }
+
+      // Get user by email
+      const user = await this.getUserByEmail(email);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Update password in Firebase Auth
+      await this.auth.updateUser(user.uid, {
+        password: newPassword,
+      });
+
+      // Clean up the reset code
+      this.resetCodes.delete(email);
+
+      console.log('Password reset successfully for:', email);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      throw error;
+    }
+  }
 }

@@ -441,4 +441,175 @@ export class AuthController {
       );
     }
   }
+
+  @Post('forgot-password')
+  async sendPasswordResetCode(@Body() body: { email: string }) {
+    try {
+      console.log('Password reset request for:', body.email);
+
+      if (!body.email || !body.email.includes('@')) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Please enter a valid email address',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Check if user exists
+      const user = await this.firebaseService.getUserByEmail(body.email);
+      if (!user) {
+        throw new HttpException(
+          {
+            status: HttpStatus.NOT_FOUND,
+            error: 'User not found',
+            message: 'No account found with this email address',
+          },
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Generate and send verification code
+      await this.firebaseService.sendPasswordResetCode(body.email);
+
+      return {
+        message: 'Verification code sent successfully',
+        email: body.email,
+      };
+    } catch (error) {
+      console.error('Error sending password reset code:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Send code failed',
+          message: error.message || 'Failed to send verification code',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('verify-reset-code')
+  async verifyPasswordResetCode(@Body() body: { email: string; code: string }) {
+    try {
+      console.log('Verifying reset code for:', body.email);
+
+      if (!body.email || !body.code) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Email and verification code are required',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (body.code.length !== 6) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Verification code must be 6 digits',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Verify the code
+      const isValid = await this.firebaseService.verifyPasswordResetCode(
+        body.email,
+        body.code,
+      );
+
+      if (!isValid) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Invalid code',
+            message: 'Invalid or expired verification code',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return {
+        message: 'Verification code is valid',
+        valid: true,
+      };
+    } catch (error) {
+      console.error('Error verifying reset code:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Verification failed',
+          message: error.message || 'Failed to verify code',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+    @Body() body: { email: string; code: string; newPassword: string },
+  ) {
+    try {
+      console.log('Resetting password for:', body.email);
+
+      if (!body.email || !body.code || !body.newPassword) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Email, verification code, and new password are required',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (body.newPassword.length < 6) {
+        throw new HttpException(
+          {
+            status: HttpStatus.BAD_REQUEST,
+            error: 'Validation failed',
+            message: 'Password must be at least 6 characters long',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Reset the password
+      await this.firebaseService.resetPassword(
+        body.email,
+        body.code,
+        body.newPassword,
+      );
+
+      return {
+        message: 'Password reset successfully',
+      };
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: 'Reset failed',
+          message: error.message || 'Failed to reset password',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }
