@@ -296,4 +296,64 @@ export const authService = {
       return false;
     }
   },
+
+  async sendPasswordResetCode(email: string) {
+    try {
+      console.log("Sending password reset code to:", email);
+
+      if (!email || !email.includes("@")) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      const response = await api.post("/auth/forgot-password", { email });
+      return response.data;
+    } catch (error: any) {
+      console.error("Send password reset code error:", error);
+      throw error;
+    }
+  },
+
+  async verifyPasswordResetCode(email: string, code: string) {
+    try {
+      console.log("Verifying password reset code for:", email);
+
+      if (!email || !code) {
+        throw new Error("Email and verification code are required");
+      }
+
+      if (code.length !== 6) {
+        throw new Error("Verification code must be 6 digits");
+      }
+
+      const response = await api.post("/auth/verify-reset-code", { email, code });
+      return response.data;
+    } catch (error: any) {
+      console.error("Verify password reset code error:", error);
+      throw error;
+    }
+  },
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    try {
+      console.log("Resetting password for:", email);
+
+      if (!email || !code || !newPassword) {
+        throw new Error("Email, verification code, and new password are required");
+      }
+
+      if (newPassword.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+      }
+
+      const response = await api.post("/auth/reset-password", {
+        email,
+        code,
+        newPassword,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      throw error;
+    }
+  },
 };
