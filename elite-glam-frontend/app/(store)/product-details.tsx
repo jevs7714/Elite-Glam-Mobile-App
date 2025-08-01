@@ -1116,7 +1116,7 @@ const ProductDetails = () => {
         </ScrollView>
 
         {/* Bottom Actions */}
-        <View style={[styles.bottomActions, { paddingBottom: insets.bottom }]}>
+        <View style={[styles.bottomActions, { marginBottom: insets.bottom }]}>
           {product.quantity > 0 ? (
             <TouchableOpacity
               style={styles.bookButton}

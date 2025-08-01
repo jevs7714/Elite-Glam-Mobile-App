@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useState, useCallback, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -115,6 +115,7 @@ const CustomHeaderTitle = () => {
 };
 
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -193,7 +194,7 @@ export default function TabsLayout() {
       <SafeAreaProvider>
         <SafeAreaView
           style={styles.loadingContainer}
-          edges={["bottom", "left", "right"]}
+          edges={["left", "right"]}
         >
           <ActivityIndicator size="large" color="#7E57C2" />
         </SafeAreaView>
@@ -228,8 +229,8 @@ export default function TabsLayout() {
             tabBarActiveTintColor: "#7E57C2",
             tabBarInactiveTintColor: "#888",
             tabBarStyle: {
-              height: 55,
-              paddingBottom: Platform.OS === "android" ? 5 : 12,
+              height: 75,
+              paddingBottom: Platform.OS === "android" ? 25 : 32,
               paddingTop: 5,
               backgroundColor: "#fff",
               elevation: 20,
@@ -243,6 +244,10 @@ export default function TabsLayout() {
             },
             tabBarLabelStyle: {
               fontSize: 11,
+              marginBottom: 10,
+            },
+            tabBarIconStyle: {
+              marginBottom: 5,
             },
           }}
         >
