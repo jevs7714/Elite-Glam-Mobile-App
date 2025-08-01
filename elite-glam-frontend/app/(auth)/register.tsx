@@ -268,7 +268,7 @@ const Register = () => {
           />
 
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Elite Glam today!</Text>
+          <Text style={styles.subtitle}>Join Elite Glam and discover amazing fashion rentals!</Text>
 
           {errors.general && (
             <View style={styles.errorContainer}>
@@ -289,6 +289,12 @@ const Register = () => {
                   ]}
                   onPress={() => handleChange("role")("customer")}
                 >
+                  <MaterialIcons 
+                    name="person" 
+                    size={24} 
+                    color={formData.role === "customer" ? "#7E57C2" : "#666"} 
+                    style={styles.roleIcon}
+                  />
                   <Text
                     style={[
                       styles.roleOptionText,
@@ -298,6 +304,7 @@ const Register = () => {
                   >
                     Customer
                   </Text>
+                  <Text style={styles.roleDescription}>Browse & rent items</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -307,6 +314,12 @@ const Register = () => {
                   ]}
                   onPress={() => handleChange("role")("shop_owner")}
                 >
+                  <MaterialIcons 
+                    name="store" 
+                    size={24} 
+                    color={formData.role === "shop_owner" ? "#7E57C2" : "#666"} 
+                    style={styles.roleIcon}
+                  />
                   <Text
                     style={[
                       styles.roleOptionText,
@@ -316,6 +329,7 @@ const Register = () => {
                   >
                     Shop Owner
                   </Text>
+                  <Text style={styles.roleDescription}>List & manage items</Text>
                 </TouchableOpacity>
               </View>
               {errors.role && <Text style={styles.roleErrorText}>{errors.role}</Text>}
@@ -474,22 +488,21 @@ const Register = () => {
 const styles = StyleSheet.create({
   keyboardAvoidingContainer: {
     flex: 1,
-    backgroundColor: "white", // Match inner container background
+    backgroundColor: "white",
   },
   scrollView: {
-    // If you had styles for the ScrollView itself
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
-    paddingVertical: 20, // Add some vertical padding
+    paddingVertical: 30,
   },
   innerContainer: {
-    // Was 'container'
     paddingHorizontal: 24,
     backgroundColor: "white",
     alignItems: "center",
+    paddingVertical: 20,
   },
   logo: {
     width: 180,
@@ -497,17 +510,20 @@ const styles = StyleSheet.create({
     marginBottom: 20, // Adjusted spacing
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#2C2C2C",
     marginBottom: 8,
     textAlign: "center",
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     color: "#666",
-    marginBottom: 25,
+    marginBottom: 30,
     textAlign: "center",
+    lineHeight: 22,
+    paddingHorizontal: 20,
   },
   form: {
     width: "100%",
@@ -563,26 +579,29 @@ const styles = StyleSheet.create({
   },
   // Button and Link Styles
   signUpButton: {
-    backgroundColor: "#7E57C2", // Brand color
-    paddingVertical: 15,
-    borderRadius: 8,
+    backgroundColor: "#7E57C2",
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10, // Add some top margin (original had 24, then 16)
+    marginTop: 20,
     marginBottom: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    elevation: 4,
+    shadowColor: "#7E57C2",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   signUpButtonDisabled: {
-    backgroundColor: "#B092DD", // Lighter shade for disabled state
+    backgroundColor: "#B092DD",
+    elevation: 2,
+    shadowOpacity: 0.1,
   },
   signUpText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   loginContainer: {
     flexDirection: "row",
@@ -616,25 +635,44 @@ const styles = StyleSheet.create({
   },
   roleOptionButton: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ccc",
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
     alignItems: "center",
-    marginHorizontal: 4, // Add some space between buttons
+    marginHorizontal: 6,
+    backgroundColor: "#FAFAFA",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   roleOptionButtonSelected: {
-    backgroundColor: "#E8EAF6", // Light purple for selected
+    backgroundColor: "#F3E5F5",
     borderColor: "#7E57C2",
+    elevation: 3,
+    shadowOpacity: 0.15,
+  },
+  roleIcon: {
+    marginBottom: 8,
   },
   roleOptionText: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#333",
+    fontWeight: "600",
+    marginBottom: 4,
   },
   roleOptionTextSelected: {
     color: "#7E57C2",
     fontWeight: "bold",
+  },
+  roleDescription: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 16,
   },
   roleErrorText: {
     color: "#B71C1C",
