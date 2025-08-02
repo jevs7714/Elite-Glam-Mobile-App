@@ -35,14 +35,13 @@ const ConfirmBooking = () => {
   const router = useRouter();
   const { productId, productName, productPrice } = useLocalSearchParams();
 
-  // Event date selection (first step)
-  const [eventCurrentDate, setEventCurrentDate] = useState(new Date());
-  const [selectedEventDate, setSelectedEventDate] = useState<Date | null>(null);
-  
-  // Fitting date selection (second step)
-  const [fittingCurrentDate, setFittingCurrentDate] = useState(new Date());
-  const [selectedFittingDate, setSelectedFittingDate] = useState<Date | null>(null);
-  
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date().getDate());
+  const [eventDate, setEventDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [eventTime, setEventTime] = useState("16:58");
+  const [eventTimePeriod, setEventTimePeriod] = useState("PM");
   const [eventType, setEventType] = useState("");
   const [otherEventType, setOtherEventType] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -55,6 +54,7 @@ const ConfirmBooking = () => {
   ];
   const [fittingTime, setFittingTime] = useState("10:00");
   const [fittingTimePeriod, setFittingTimePeriod] = useState("AM");
+  const [eventLocation, setEventLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sellerLocation, setSellerLocation] = useState(
     "Location not available"
@@ -80,10 +80,16 @@ const ConfirmBooking = () => {
   const totalPrice = includeMakeup ? itemTotal + makeupServicePrice : itemTotal;
   const formattedPrice = totalPrice.toLocaleString();
 
-  // Generate calendar days for event date selection
-  const getEventDaysInMonth = () => {
-    const year = eventCurrentDate.getFullYear();
-    const month = eventCurrentDate.getMonth();
+  // Get current month and year
+  const currentMonth = currentDate.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // Generate calendar days
+  const getDaysInMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDayOfMonth = new Date(year, month, 1).getDay();
     const days = [];
@@ -100,123 +106,29 @@ const ConfirmBooking = () => {
     return days;
   };
 
-  // Generate calendar days for fitting date selection
-  const getFittingDaysInMonth = () => {
-    const year = fittingCurrentDate.getFullYear();
-    const month = fittingCurrentDate.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const days = [];
-    const rows = 6; // Always 6 rows for 42 cells
-    const totalCells = rows * 7;
-    for (let i = 0; i < totalCells; i++) {
-      const dayNumber = i - firstDayOfMonth + 1;
-      if (dayNumber > 0 && dayNumber <= daysInMonth) {
-        days.push(dayNumber);
-      } else {
-        days.push(null);
-      }
-    }
-    return days;
-  };
+  const days = getDaysInMonth();
 
-  const eventDays = getEventDaysInMonth();
-  const fittingDays = getFittingDaysInMonth();
-
-  // Event date calendar navigation
-  const handleEventPrevMonth = () => {
-    setEventCurrentDate(
-      new Date(eventCurrentDate.getFullYear(), eventCurrentDate.getMonth() - 1)
+  const handlePrevMonth = () => {
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1)
     );
   };
 
-  const handleEventNextMonth = () => {
-    setEventCurrentDate(
-      new Date(eventCurrentDate.getFullYear(), eventCurrentDate.getMonth() + 1)
+  const handleNextMonth = () => {
+    setCurrentDate(
+      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1)
     );
   };
 
-  // Fitting date calendar navigation
-  const handleFittingPrevMonth = () => {
-    setFittingCurrentDate(
-      new Date(fittingCurrentDate.getFullYear(), fittingCurrentDate.getMonth() - 1)
-    );
-  };
-
-  const handleFittingNextMonth = () => {
-    setFittingCurrentDate(
-      new Date(fittingCurrentDate.getFullYear(), fittingCurrentDate.getMonth() + 1)
-    );
-  };
-
-  // Event date selection (disable past dates)
-  const handleEventDateSelect = (day: number) => {
+  const handleDateSelect = (day: number) => {
     const selectedDate = new Date(
-      eventCurrentDate.getFullYear(),
-      eventCurrentDate.getMonth(),
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
       day
     );
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (selectedDate >= today) {
-      setSelectedEventDate(selectedDate);
-      // Reset fitting date when event date changes
-      setSelectedFittingDate(null);
-    }
-  };
-
-  // Fitting date selection (only 3 days before event)
-  const handleFittingDateSelect = (day: number) => {
-    if (!selectedEventDate) return;
-    
-    const selectedDate = new Date(
-      fittingCurrentDate.getFullYear(),
-      fittingCurrentDate.getMonth(),
-      day
-    );
-    
-    // Check if the selected date is within 3 days before event
-    const eventDate = new Date(selectedEventDate);
-    const threeDaysBefore = new Date(eventDate);
-    threeDaysBefore.setDate(eventDate.getDate() - 3);
-    const oneDayBefore = new Date(eventDate);
-    oneDayBefore.setDate(eventDate.getDate() - 1);
-    
-    if (selectedDate >= threeDaysBefore && selectedDate <= oneDayBefore) {
-      setSelectedFittingDate(selectedDate);
-    }
-  };
-
-  // Helper function to check if a date is disabled for event selection
-  const isEventDateDisabled = (day: number) => {
-    const date = new Date(
-      eventCurrentDate.getFullYear(),
-      eventCurrentDate.getMonth(),
-      day
-    );
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  };
-
-  // Helper function to check if a date is available for fitting
-  const isFittingDateAvailable = (day: number) => {
-    if (!selectedEventDate) return false;
-    
-    const date = new Date(
-      fittingCurrentDate.getFullYear(),
-      fittingCurrentDate.getMonth(),
-      day
-    );
-    
-    const eventDate = new Date(selectedEventDate);
-    const threeDaysBefore = new Date(eventDate);
-    threeDaysBefore.setDate(eventDate.getDate() - 3);
-    const oneDayBefore = new Date(eventDate);
-    oneDayBefore.setDate(eventDate.getDate() - 1);
-    
-    return date >= threeDaysBefore && date <= oneDayBefore;
+    const dateString = selectedDate.toISOString().split("T")[0];
+    setSelectedDate(day);
+    setEventDate(dateString);
   };
 
   const handleConfirmBooking = async () => {
@@ -277,30 +189,16 @@ const ConfirmBooking = () => {
         );
       }
 
-      // Validate date selections
-      if (!selectedEventDate) {
-        throw new Error("Please select an event date");
-      }
-      
-      if (!selectedFittingDate) {
-        throw new Error("Please select a fitting date");
-      }
-
       // Create booking data
       const bookingData = {
         customerName: userData.username,
         serviceName: productName as string,
         productId: productId as string,
-        eventDate: selectedEventDate.toISOString().split("T")[0],
-        fittingDate: selectedFittingDate.toISOString().split("T")[0],
-        // Legacy fields for backend compatibility
-        date: selectedEventDate.toISOString().split("T")[0],
-        time: "00:00", // Placeholder since we removed time selection
-        eventTimePeriod: "AM", // Placeholder since we removed event time
-        eventLocation: "", // Placeholder since we removed event location
+        date: eventDate,
+        time: eventTime,
         status: "pending" as const,
         price: totalPrice,
-        notes: "",
+        notes: "", // Empty notes field since we're using eventLocation
         createdAt: new Date(),
         updatedAt: new Date(),
         uid: userData.uid,
@@ -308,20 +206,24 @@ const ConfirmBooking = () => {
         ownerUsername,
         sellerLocation,
         productImage,
+        eventTimePeriod,
         eventType: eventType === "Others" ? otherEventType : eventType,
         fittingTime,
         fittingTimePeriod,
+        eventLocation,
         includeMakeup,
         quantity: selectedQuantity,
         selectedSize,
       };
 
       console.log("Creating booking with data:", {
-        eventDate: selectedEventDate.toISOString().split("T")[0],
-        fittingDate: selectedFittingDate.toISOString().split("T")[0],
+        eventLocation,
         eventType,
         fittingTime,
         fittingTimePeriod,
+        eventTimePeriod,
+        time: eventTime,
+        date: eventDate,
       });
 
       // Submit booking using the api instance
@@ -445,15 +347,6 @@ const ConfirmBooking = () => {
         );
       }
 
-      // Validate date selections
-      if (!selectedEventDate) {
-        throw new Error("Please select an event date");
-      }
-      
-      if (!selectedFittingDate) {
-        throw new Error("Please select a fitting date");
-      }
-
       const makeupServicePrice = 1500;
       const itemTotal = basePrice * selectedQuantity;
       const totalPrice = includeMakeup
@@ -470,18 +363,15 @@ const ConfirmBooking = () => {
         selectedSize,
 
         // Booking details
-        eventDate: selectedEventDate.toISOString().split("T")[0],
-        fittingDate: selectedFittingDate.toISOString().split("T")[0],
+        eventDate,
+        eventTime,
+        eventTimePeriod,
         eventType: eventType === "Others" ? otherEventType : eventType,
         otherEventType: eventType === "Others" ? otherEventType : undefined,
+        eventLocation,
         fittingTime,
         fittingTimePeriod,
         includeMakeup,
-        
-        // Legacy fields for compatibility
-        eventTime: "",
-        eventTimePeriod: "AM",
-        eventLocation: "",
 
         // Seller information
         ownerUsername,
@@ -726,21 +616,21 @@ const ConfirmBooking = () => {
           </View>
         )}
 
-        {/* Step 1: Event Date Selection */}
+        {/* Calendar Section */}
         <View style={styles.calendarContainer}>
-          <Text style={styles.sectionTitle}>Step 1: Select Event Date</Text>
-          
+          <Text style={styles.sectionTitle}>Select Fitting Date</Text>
+
           <View style={styles.calendarHeader}>
-            <TouchableOpacity onPress={handleEventPrevMonth}>
+            <TouchableOpacity onPress={handlePrevMonth}>
               <MaterialIcons name="chevron-left" size={24} color="#333" />
             </TouchableOpacity>
             <Text style={styles.monthText}>
-              {eventCurrentDate.toLocaleString("default", {
+              {currentDate.toLocaleString("default", {
                 month: "long",
                 year: "numeric",
               })}
             </Text>
-            <TouchableOpacity onPress={handleEventNextMonth}>
+            <TouchableOpacity onPress={handleNextMonth}>
               <MaterialIcons name="chevron-right" size={24} color="#333" />
             </TouchableOpacity>
           </View>
@@ -756,35 +646,25 @@ const ConfirmBooking = () => {
             )}
           </View>
 
-          {/* Event Date Calendar Grid */}
+          {/* Calendar Grid */}
           <View style={styles.calendarGrid}>
-            {eventDays.map((day, index) => {
+            {days.map((day, index) => {
               if (day === null) {
                 return <View key={index} style={styles.emptyDay} />;
               }
 
-              const isSelected = selectedEventDate && 
-                selectedEventDate.getDate() === day &&
-                selectedEventDate.getMonth() === eventCurrentDate.getMonth() &&
-                selectedEventDate.getFullYear() === eventCurrentDate.getFullYear();
-              const isDisabled = isEventDateDisabled(day);
+              const isSelected = day === selectedDate;
 
               return (
                 <TouchableOpacity
                   key={index}
-                  style={[
-                    styles.dayCell,
-                    isSelected && styles.selectedDay,
-                    isDisabled && styles.disabledDay
-                  ]}
-                  onPress={() => handleEventDateSelect(day)}
-                  disabled={isDisabled}
+                  style={[styles.dayCell, isSelected && styles.selectedDay]}
+                  onPress={() => handleDateSelect(day)}
                 >
                   <Text
                     style={[
                       styles.dayText,
                       isSelected && styles.selectedDayText,
-                      isDisabled && styles.disabledDayText
                     ]}
                   >
                     {day}
@@ -793,162 +673,57 @@ const ConfirmBooking = () => {
               );
             })}
           </View>
-          
-          {selectedEventDate && (
-            <View style={styles.selectedDateInfo}>
-              <Ionicons name="calendar" size={20} color="#6B46C1" />
-              <Text style={styles.selectedDateText}>
-                Event Date: {selectedEventDate.toLocaleDateString()}
-              </Text>
-            </View>
-          )}
-        </View>
 
-        {/* Step 2: Fitting Date Selection */}
-        {selectedEventDate && (
-          <View style={styles.calendarContainer}>
-            <Text style={styles.sectionTitle}>Step 2: Select Fitting Date</Text>
-            <Text style={styles.fittingDateSubtitle}>
-              Choose a date within 3 days before your event
+          {/* Fitting Time Selection */}
+          <View style={styles.fittingTimeContainer}>
+            <Text style={styles.fittingTimeLabel}>
+              Preferred Time of Arrival
             </Text>
-            
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={handleFittingPrevMonth}>
-                <MaterialIcons name="chevron-left" size={24} color="#333" />
-              </TouchableOpacity>
-              <Text style={styles.monthText}>
-                {fittingCurrentDate.toLocaleString("default", {
-                  month: "long",
-                  year: "numeric",
-                })}
-              </Text>
-              <TouchableOpacity onPress={handleFittingNextMonth}>
-                <MaterialIcons name="chevron-right" size={24} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Calendar Days Header */}
-            <View style={styles.daysHeader}>
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                (day, index) => (
-                  <Text key={index} style={styles.dayHeaderText}>
-                    {day}
+            <View style={styles.fittingTimeInputContainer}>
+              <TextInput
+                style={styles.fittingTimeInput}
+                value={fittingTime}
+                onChangeText={setFittingTime}
+                placeholder="HH:MM"
+                placeholderTextColor="#999"
+              />
+              <View style={styles.timePeriodContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.timePeriodButton,
+                    fittingTimePeriod === "AM" && styles.timePeriodButtonActive,
+                  ]}
+                  onPress={() => setFittingTimePeriod("AM")}
+                >
+                  <Text
+                    style={[
+                      styles.timePeriodText,
+                      fittingTimePeriod === "AM" && styles.timePeriodTextActive,
+                    ]}
+                  >
+                    AM
                   </Text>
-                )
-              )}
-            </View>
-
-            {/* Fitting Date Calendar Grid */}
-            <View style={styles.calendarGrid}>
-              {fittingDays.map((day, index) => {
-                if (day === null) {
-                  return <View key={index} style={styles.emptyDay} />;
-                }
-
-                const isSelected = selectedFittingDate && 
-                  selectedFittingDate.getDate() === day &&
-                  selectedFittingDate.getMonth() === fittingCurrentDate.getMonth() &&
-                  selectedFittingDate.getFullYear() === fittingCurrentDate.getFullYear();
-                const isAvailable = isFittingDateAvailable(day);
-
-                return (
-                  <TouchableOpacity
-                    key={index}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.timePeriodButton,
+                    fittingTimePeriod === "PM" && styles.timePeriodButtonActive,
+                  ]}
+                  onPress={() => setFittingTimePeriod("PM")}
+                >
+                  <Text
                     style={[
-                      styles.dayCell,
-                      isSelected && styles.selectedDay,
-                      !isAvailable && styles.disabledDay,
-                      isAvailable && !isSelected && styles.availableDay
+                      styles.timePeriodText,
+                      fittingTimePeriod === "PM" && styles.timePeriodTextActive,
                     ]}
-                    onPress={() => handleFittingDateSelect(day)}
-                    disabled={!isAvailable}
                   >
-                    <Text
-                      style={[
-                        styles.dayText,
-                        isSelected && styles.selectedDayText,
-                        !isAvailable && styles.disabledDayText,
-                        isAvailable && !isSelected && styles.availableDayText
-                      ]}
-                    >
-                      {day}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            
-            {selectedFittingDate && (
-              <View style={styles.selectedDateInfo}>
-                <Ionicons name="calendar" size={20} color="#6B46C1" />
-                <Text style={styles.selectedDateText}>
-                  Fitting Date: {selectedFittingDate.toLocaleDateString()}
-                </Text>
-              </View>
-            )}
-
-            {/* Fitting Time Selection */}
-            <View style={styles.fittingTimeContainer}>
-              <Text style={styles.fittingTimeLabel}>
-                Preferred Time of Pickup
-              </Text>
-              <View style={styles.fittingTimeInputContainer}>
-                <TextInput
-                  style={styles.fittingTimeInput}
-                  value={fittingTime}
-                  onChangeText={setFittingTime}
-                  placeholder="HH:MM"
-                  placeholderTextColor="#999"
-                />
-                <View style={styles.timePeriodContainer}>
-                  <TouchableOpacity
-                    style={[
-                      styles.timePeriodButton,
-                      fittingTimePeriod === "AM" && styles.timePeriodButtonActive,
-                    ]}
-                    onPress={() => setFittingTimePeriod("AM")}
-                  >
-                    <Text
-                      style={[
-                        styles.timePeriodText,
-                        fittingTimePeriod === "AM" && styles.timePeriodTextActive,
-                      ]}
-                    >
-                      AM
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.timePeriodButton,
-                      fittingTimePeriod === "PM" && styles.timePeriodButtonActive,
-                    ]}
-                    onPress={() => setFittingTimePeriod("PM")}
-                  >
-                    <Text
-                      style={[
-                        styles.timePeriodText,
-                        fittingTimePeriod === "PM" && styles.timePeriodTextActive,
-                      ]}
-                    >
-                      PM
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                    PM
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
-        )}
-
-        {/* Return Warning */}
-        {selectedEventDate && (
-          <View style={styles.warningContainer}>
-            <Ionicons name="warning" size={20} color="#F59E0B" />
-            <Text style={styles.warningText}>
-              Please return the product the day after your event ({new Date(selectedEventDate.getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()}). 
-              After that date, an additional charge of ₱100 will apply.
-            </Text>
-          </View>
-        )}
+        </View>
 
         {/* Event Details */}
         <View style={styles.eventDetailsContainer}>
@@ -1005,7 +780,78 @@ const ConfirmBooking = () => {
             </TouchableWithoutFeedback>
           </Modal>
 
+          <View style={styles.eventDetailRow}>
+            <Text style={styles.eventDetailLabel}>Date of Event</Text>
+            <View style={styles.eventDateInputContainer}>
+              <TextInput
+                style={styles.eventDateInput}
+                value={eventDate}
+                onChangeText={setEventDate}
+              />
+              <Ionicons name="calendar" size={20} color="#666" />
+            </View>
+          </View>
 
+          <View style={styles.eventDetailRow}>
+            <Text style={styles.eventDetailLabel}>Time of Event</Text>
+            <View style={styles.eventTimeInputContainer}>
+              <TextInput
+                style={styles.eventTimeInput}
+                value={eventTime}
+                onChangeText={setEventTime}
+                placeholder="HH:MM"
+                placeholderTextColor="#999"
+              />
+              <View style={styles.timePeriodContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.timePeriodButton,
+                    eventTimePeriod === "AM" && styles.timePeriodButtonActive,
+                  ]}
+                  onPress={() => setEventTimePeriod("AM")}
+                >
+                  <Text
+                    style={[
+                      styles.timePeriodText,
+                      eventTimePeriod === "AM" && styles.timePeriodTextActive,
+                    ]}
+                  >
+                    AM
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.timePeriodButton,
+                    eventTimePeriod === "PM" && styles.timePeriodButtonActive,
+                  ]}
+                  onPress={() => setEventTimePeriod("PM")}
+                >
+                  <Text
+                    style={[
+                      styles.timePeriodText,
+                      eventTimePeriod === "PM" && styles.timePeriodTextActive,
+                    ]}
+                  >
+                    PM
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.eventDetailRow}>
+            <Text style={styles.eventDetailLabel}>Event Location</Text>
+            <View style={styles.eventLocationInputContainer}>
+              <TextInput
+                style={styles.eventLocationInput}
+                placeholder="Enter event location"
+                placeholderTextColor="#999"
+                value={eventLocation}
+                onChangeText={setEventLocation}
+              />
+              <Ionicons name="location-outline" size={20} color="#666" />
+            </View>
+          </View>
         </View>
 
         <TouchableOpacity
@@ -1087,37 +933,49 @@ const ConfirmBooking = () => {
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Event Date</Text>
-            <Text style={styles.summaryValue}>
-              {selectedEventDate ? selectedEventDate.toLocaleDateString("en-US", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              }) : "Not selected"}
-            </Text>
-          </View>
-
-          <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Fitting Date</Text>
             <Text style={styles.summaryValue}>
-              {selectedFittingDate ? selectedFittingDate.toLocaleDateString("en-US", {
+              {new Date(eventDate).toLocaleDateString("en-US", {
                 weekday: "long",
                 year: "numeric",
                 month: "long",
                 day: "numeric",
-              }) : "Not selected"}
+              })}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Preferred Time of Pickup</Text>
+            <Text style={styles.summaryLabel}>Preferred Time of Arrival</Text>
             <Text style={styles.summaryValue}>
               {fittingTime} {fittingTimePeriod}
             </Text>
           </View>
 
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Event Date</Text>
+            <Text style={styles.summaryValue}>
+              {new Date(eventDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+          </View>
 
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Event Time</Text>
+            <Text style={styles.summaryValue}>
+              {eventTime} {eventTimePeriod}
+            </Text>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Event Location</Text>
+            <Text style={styles.summaryValue}>
+              {eventLocation || "Not specified"}
+            </Text>
+          </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Product Owner Location</Text>
@@ -1676,61 +1534,6 @@ const styles = StyleSheet.create({
   addToCartButtonDisabled: {
     opacity: 0.7,
     borderColor: "#ccc",
-  },
-  disabledDay: {
-    backgroundColor: "#F7FAFC",
-    borderColor: "#E2E8F0",
-  },
-  disabledDayText: {
-    color: "#A0AEC0",
-  },
-  availableDay: {
-    backgroundColor: "#E6FFFA",
-    borderColor: "#38B2AC",
-  },
-  availableDayText: {
-    color: "#38B2AC",
-    fontWeight: "600",
-  },
-  selectedDateInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: "#F7FAFC",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  selectedDateText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2D3748",
-  },
-  fittingDateSubtitle: {
-    fontSize: 14,
-    color: "#718096",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  warningContainer: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#F59E0B",
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  warningText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: "#92400E",
-    lineHeight: 20,
   },
 });
 
