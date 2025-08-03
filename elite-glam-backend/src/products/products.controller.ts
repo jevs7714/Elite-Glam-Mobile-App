@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Delete, Put, BadRequestException, Query, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ImageKitService } from '../imagekit/imagekit.service';
@@ -12,22 +12,24 @@ export class ProductsController {
   ) {}
 
   @Post()
-  @UseInterceptors(FilesInterceptor('images', 5, {
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'images', maxCount: 5 },
+    { name: 'previewImages', maxCount: 5 },
+  ], {
     limits: {
       fileSize: 5 * 1024 * 1024, // 5MB limit per file
     },
   }))
   async create(
     @Body() formData: any,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles() files: { images?: Express.Multer.File[], previewImages?: Express.Multer.File[] },
   ) {
     try {
       console.log('Received create product request with data:', formData);
-      console.log('Received files:', files ? files.map(f => ({
-        filename: f.originalname,
-        mimetype: f.mimetype,
-        size: f.size
-      })) : 'No files');
+      console.log('Received files:', {
+        images: files.images?.length || 0,
+        previewImages: files.previewImages?.length || 0
+      });
       
       // Parse and validate the form data
       const createProductDto: CreateProductDto = {
@@ -49,15 +51,17 @@ export class ProductsController {
         throw new BadRequestException('Quantity must be a non-negative number');
       }
 
-      // Handle multiple images if provided
-      if (files && files.length > 0) {
+      console.log(`Processing ${files.images?.length || 0} regular images and ${files.previewImages?.length || 0} preview images`);
+
+      // Handle regular images if provided
+      if (files.images && files.images.length > 0) {
         const imageUrls: string[] = [];
         const imageFileIds: string[] = [];
         
-        // Upload all images to ImageKit
-        for (const file of files) {
+        // Upload all regular images to ImageKit
+        for (const file of files.images) {
           const imageKitResult = await this.imageKitService.uploadImage(file, 'products', true);
-          console.log('Generated image URL:', imageKitResult.url);
+          console.log('Generated regular image URL:', imageKitResult.url);
           imageUrls.push(imageKitResult.url);
           imageFileIds.push(imageKitResult.fileId);
         }
@@ -69,6 +73,24 @@ export class ProductsController {
         // Set all images in the images array
         createProductDto.images = imageUrls;
         createProductDto.imageFileIds = imageFileIds;
+      }
+      
+      // Handle preview images if provided
+      if (files.previewImages && files.previewImages.length > 0) {
+        const previewImageUrls: string[] = [];
+        const previewImageFileIds: string[] = [];
+        
+        // Upload all preview images to ImageKit
+        for (const file of files.previewImages) {
+          const imageKitResult = await this.imageKitService.uploadImage(file, 'product-previews', true);
+          console.log('Generated preview image URL:', imageKitResult.url);
+          previewImageUrls.push(imageKitResult.url);
+          previewImageFileIds.push(imageKitResult.fileId);
+        }
+        
+        // Set preview images in the DTO
+        createProductDto.previewImages = previewImageUrls;
+        createProductDto.previewImageFileIds = previewImageFileIds;
       }
 
       const result = await this.productsService.create(createProductDto);

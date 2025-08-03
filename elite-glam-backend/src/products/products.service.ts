@@ -12,6 +12,8 @@ export interface Product extends CreateProductDto {
   imageFileId?: string;
   available: boolean; // Added available status
   averageRating?: number; // To hold the calculated average rating
+  previewImages?: string[]; // Array of preview image URLs
+  previewImageFileIds?: string[]; // Array of preview image file IDs
 }
 
 const SAMPLE_PRODUCTS: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = [
@@ -294,9 +296,35 @@ export class ProductsService implements OnModuleInit {
       throw new NotFoundException(`Product with ID "${id}" not found`);
     }
 
-      // Delete image from ImageKit if fileId exists
+      // Delete main image from ImageKit if fileId exists
       if (product.imageFileId) {
         await this.imageKitService.deleteImage(product.imageFileId);
+      }
+      
+      // Delete all additional product images if they exist
+      if (product.imageFileIds && product.imageFileIds.length > 0) {
+        for (const fileId of product.imageFileIds) {
+          if (fileId !== product.imageFileId) { // Skip the main image as it's already deleted
+            try {
+              await this.imageKitService.deleteImage(fileId);
+            } catch (error) {
+              console.error(`Error deleting image with fileId ${fileId}:`, error);
+              // Continue with other deletions even if one fails
+            }
+          }
+        }
+      }
+      
+      // Delete all preview images if they exist
+      if (product.previewImageFileIds && product.previewImageFileIds.length > 0) {
+        for (const fileId of product.previewImageFileIds) {
+          try {
+            await this.imageKitService.deleteImage(fileId);
+          } catch (error) {
+            console.error(`Error deleting preview image with fileId ${fileId}:`, error);
+            // Continue with other deletions even if one fails
+          }
+        }
       }
 
       // Delete all ratings associated with this product
@@ -392,4 +420,4 @@ export class ProductsService implements OnModuleInit {
       throw new InternalServerErrorException('Failed to fetch products from the same shop.');
     }
   }
-} 
+}
