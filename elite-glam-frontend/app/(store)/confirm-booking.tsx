@@ -18,6 +18,7 @@ import { Ionicons, MaterialIcons, AntDesign } from "@expo/vector-icons";
 import { bookingService } from "../../services/booking.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { productsService } from "../../services/products.service";
+import { Calendar } from "react-native-calendars";
 import { api } from "../../services/api";
 import { API_URL } from "../../config/api.config";
 import { cartService } from "../../services/cart.service";
@@ -36,10 +37,16 @@ const ConfirmBooking = () => {
   const { productId, productName, productPrice } = useLocalSearchParams();
 
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState(new Date().getDate());
-  const [eventDate, setEventDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const [eventDate, setEventDate] = useState("");
+  const [showEventCalendar, setShowEventCalendar] = useState(false);
+
+  // Format for react-native-calendars marked dates
+  const markedDates = eventDate
+    ? {
+        [eventDate]: { selected: true, selectedColor: "#FF6B6B" },
+      }
+    : {};
   const [eventTime, setEventTime] = useState("16:58");
   const [eventTimePeriod, setEventTimePeriod] = useState("PM");
   const [eventType, setEventType] = useState("");
@@ -121,14 +128,59 @@ const ConfirmBooking = () => {
   };
 
   const handleDateSelect = (day: number) => {
-    const selectedDate = new Date(
+    // Only allow selecting fitting date if event date is set
+    if (!eventDate) {
+      Alert.alert(
+        "Event Date Required",
+        "Please select a date for your event before selecting a fitting date."
+      );
+      return;
+    }
+
+    const selectedDateObj = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
       day
     );
-    const dateString = selectedDate.toISOString().split("T")[0];
+    const dateString = selectedDateObj.toISOString().split("T")[0];
+
+    // Parse event date
+    const eventDateObj = new Date(eventDate);
+
+    // Get today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Calculate the earliest allowed fitting date (3 days before event)
+    const earliestFittingDate = new Date(eventDateObj);
+    earliestFittingDate.setDate(eventDateObj.getDate() - 3);
+
+    // Check if selected date is valid (must be strictly before the event date)
+    if (selectedDateObj >= eventDateObj) {
+      Alert.alert(
+        "Invalid Fitting Date",
+        "Fitting date must be strictly before the event date and cannot be the same day as the event."
+      );
+      return;
+    }
+
+    if (selectedDateObj < earliestFittingDate) {
+      Alert.alert(
+        "Invalid Fitting Date",
+        "Fitting date must be within 3 days before the event date."
+      );
+      return;
+    }
+
+    if (selectedDateObj < today) {
+      Alert.alert(
+        "Invalid Fitting Date",
+        "Fitting date cannot be in the past."
+      );
+      return;
+    }
+
     setSelectedDate(day);
-    setEventDate(dateString);
   };
 
   const handleConfirmBooking = async () => {
@@ -146,6 +198,15 @@ const ConfirmBooking = () => {
       Alert.alert(
         "Invalid Quantity",
         `Please select between 1 and ${availableQuantity} items.`
+      );
+      return;
+    }
+
+    // Validate event date is selected
+    if (!eventDate) {
+      Alert.alert(
+        "Event Date Required",
+        "Please select a date for your event before adding to cart."
       );
       return;
     }
@@ -653,18 +714,60 @@ const ConfirmBooking = () => {
                 return <View key={index} style={styles.emptyDay} />;
               }
 
-              const isSelected = day === selectedDate;
+              const dayDate = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth(),
+                day
+              );
+
+              // Get today's date at midnight for comparison
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              const isSelected = selectedDate !== null && day === selectedDate;
+              const isPastDate = dayDate < today;
+
+              // Check if date is valid for fitting (only if event date is set)
+              let isValidFittingDate = true;
+              let isWithinFittingRange = false;
+
+              if (eventDate) {
+                const eventDateObj = new Date(eventDate);
+
+                // Calculate the earliest allowed fitting date (3 days before event)
+                const earliestFittingDate = new Date(eventDateObj);
+                earliestFittingDate.setDate(eventDateObj.getDate() - 3);
+
+                // Date is valid if it's between today and the day before event
+                // and within the 3-day window before the event
+                isWithinFittingRange =
+                  dayDate >= earliestFittingDate &&
+                  dayDate < eventDateObj && // This ensures event date itself is excluded from fitting dates
+                  dayDate >= today;
+
+                isValidFittingDate = isWithinFittingRange;
+              }
+
+              const isDisabled = !isValidFittingDate || isPastDate;
 
               return (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.dayCell, isSelected && styles.selectedDay]}
-                  onPress={() => handleDateSelect(day)}
+                  style={[
+                    styles.dayCell,
+                    isSelected && styles.selectedDay,
+                    isDisabled && styles.disabledDay,
+                    isWithinFittingRange && styles.validFittingDay,
+                  ]}
+                  onPress={() => !isDisabled && handleDateSelect(day)}
+                  disabled={isDisabled}
                 >
                   <Text
                     style={[
                       styles.dayText,
                       isSelected && styles.selectedDayText,
+                      isDisabled && styles.disabledDayText,
+                      isWithinFittingRange && styles.validFittingDayText,
                     ]}
                   >
                     {day}
@@ -677,7 +780,7 @@ const ConfirmBooking = () => {
           {/* Fitting Time Selection */}
           <View style={styles.fittingTimeContainer}>
             <Text style={styles.fittingTimeLabel}>
-              Preferred Time of Arrival
+              Preferred Time of Pickup
             </Text>
             <View style={styles.fittingTimeInputContainer}>
               <TextInput
@@ -783,13 +886,62 @@ const ConfirmBooking = () => {
           <View style={styles.eventDetailRow}>
             <Text style={styles.eventDetailLabel}>Date of Event</Text>
             <View style={styles.eventDateInputContainer}>
-              <TextInput
+              <TouchableOpacity
                 style={styles.eventDateInput}
-                value={eventDate}
-                onChangeText={setEventDate}
-              />
-              <Ionicons name="calendar" size={20} color="#666" />
+                onPress={() => setShowEventCalendar(!showEventCalendar)}
+              >
+                <Text style={styles.eventDateText}>
+                  {eventDate || "Select event date"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowEventCalendar(!showEventCalendar)}
+              >
+                <Ionicons name="calendar" size={20} color="#666" />
+              </TouchableOpacity>
             </View>
+            {showEventCalendar && (
+              <View style={styles.calendarWrapper}>
+                <Calendar
+                  onDayPress={(day) => {
+                    // Get today's date at midnight for comparison
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    // Convert selected date string to Date object
+                    const selectedDate = new Date(day.dateString);
+
+                    // Check if selected date is today or in the past
+                    if (selectedDate <= today) {
+                      Alert.alert(
+                        "Invalid Event Date",
+                        "Event date must be in the future (not today or earlier)."
+                      );
+                      return;
+                    }
+
+                    setEventDate(day.dateString);
+                    setShowEventCalendar(false);
+                  }}
+                  disableAllTouchEventsForDisabledDays={true}
+                  markedDates={markedDates}
+                  minDate={(() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(0, 0, 0, 0);
+                    return tomorrow.toISOString().split("T")[0];
+                  })()}
+                  theme={{
+                    selectedDayBackgroundColor: "#FF6B6B",
+                    selectedDayTextColor: "#FFFFFF",
+                    todayTextColor: "#999999",
+                    arrowColor: "#FF6B6B",
+                    textDisabledColor: "#d9e1e8",
+                    disabledArrowColor: "#d9e1e8",
+                  }}
+                />
+              </View>
+            )}
           </View>
 
           <View style={styles.eventDetailRow}>
@@ -1187,8 +1339,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#6B46C1",
   },
   selectedDayText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  disabledDay: {
+    opacity: 0.4,
+  },
+  disabledDayText: {
+    color: "#999",
+  },
+  validFittingDay: {
+    borderWidth: 1,
+    borderColor: "#6B46C1",
+  },
+  validFittingDayText: {
+    color: "#6B46C1",
+    fontWeight: "500",
   },
   eventDetailsContainer: {
     backgroundColor: "#fff",
@@ -1247,6 +1413,18 @@ const styles = StyleSheet.create({
   eventDateInput: {
     flex: 1,
     height: 40,
+    justifyContent: "center",
+  },
+  eventDateText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  calendarWrapper: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    overflow: "hidden",
   },
   eventTimeInputContainer: {
     flexDirection: "row",
@@ -1514,7 +1692,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === "ios" ? 40 : 30,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   addToCartButton: {
     flex: 1,

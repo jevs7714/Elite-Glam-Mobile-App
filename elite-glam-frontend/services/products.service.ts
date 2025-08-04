@@ -9,6 +9,7 @@ export interface Product {
   price: number;
   image?: string;
   images?: string[];
+  previewImages?: string[];
   category: string;
   condition?: string;
   sellerMessage?: string;

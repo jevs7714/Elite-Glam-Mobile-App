@@ -61,4 +61,15 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   imageFileIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsUrl({}, { each: true })
+  previewImages?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  previewImageFileIds?: string[];
 }

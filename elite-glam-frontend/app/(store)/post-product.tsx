@@ -31,7 +31,9 @@ export default function PostProductScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedPreviewImageIndex, setSelectedPreviewImageIndex] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -107,6 +109,51 @@ export default function PostProductScreen() {
     });
   };
 
+  const pickPreviewImages = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Please grant permission to access your photo library"
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        selectionLimit: 5, // Limit to 5 preview images
+        quality: 0.8,
+        allowsEditing: false, // Disable editing for multiple selection
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newImages = result.assets.map((asset) => asset.uri);
+        setPreviewImages((prev) => {
+          const combined = [...prev, ...newImages];
+          return combined.slice(0, 5); // Ensure max 5 images
+        });
+      }
+    } catch (error) {
+      console.error("Error picking preview images:", error);
+      Alert.alert("Error", "Failed to pick preview images");
+    }
+  };
+
+  const removePreviewImage = (index: number) => {
+    setPreviewImages((prev) => {
+      const newImages = prev.filter((_, i) => i !== index);
+      if (selectedPreviewImageIndex >= newImages.length && newImages.length > 0) {
+        setSelectedPreviewImageIndex(newImages.length - 1);
+      } else if (newImages.length === 0) {
+        setSelectedPreviewImageIndex(0);
+      }
+      return newImages;
+    });
+  };
+
   const validateForm = () => {
     if (!formData.name.trim()) {
       Alert.alert("Error", "Product name is required");
@@ -177,6 +224,22 @@ export default function PostProductScreen() {
           } as any);
         });
       }
+      
+      // Add preview images to the 'previewImages' field
+      if (previewImages.length > 0) {
+        previewImages.forEach((imageUri) => {
+          const filename = imageUri.split("/").pop();
+          const match = /\.(\w+)$/.exec(filename || "");
+          const type = match ? `image/${match[1]}` : "image";
+
+          // All preview images go to the 'previewImages' field
+          formDataToSend.append("previewImages", {
+            uri: imageUri,
+            name: filename,
+            type,
+          } as any);
+        });
+      }
 
       console.log("Sending form data:", {
         name: formData.name.trim(),
@@ -188,6 +251,8 @@ export default function PostProductScreen() {
         rating: "0",
         hasImages: images.length,
         imageCount: images.length,
+        hasPreviewImages: previewImages.length,
+        previewImageCount: previewImages.length,
       });
 
       const result = await productsService.createProduct(formDataToSend);
@@ -320,6 +385,99 @@ export default function PostProductScreen() {
             <Text style={styles.imageHelperText}>
               First image will be used as the main thumbnail
             </Text>
+          </View>
+
+          {/* Preview Images Section */}
+          <View style={styles.imageUploadContainer}>
+            <Text style={styles.label}>
+              Preview Images ({previewImages.length}/5)
+            </Text>
+            <Text style={styles.previewHelperText}>
+              These images will be shown in the product details page to demonstrate how the product looks when worn or used
+            </Text>
+
+            {/* Main Preview Image Display */}
+            <View style={styles.mainImageContainer}>
+              <TouchableOpacity
+                style={[styles.imageUploadButton, styles.previewImageUploadButton]}
+                onPress={pickPreviewImages}
+                disabled={isLoading || previewImages.length >= 5}
+              >
+                {previewImages.length > 0 ? (
+                  <Image
+                    source={{ uri: previewImages[selectedPreviewImageIndex] }}
+                    style={styles.uploadedImage}
+                  />
+                ) : (
+                  <View style={styles.uploadPlaceholder}>
+                    <MaterialIcons
+                      name="photo-camera"
+                      size={32}
+                      color="#666"
+                    />
+                    <Text style={styles.uploadText}>Add Preview Images</Text>
+                    <Text style={styles.uploadSubText}>Show how it looks when worn</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {previewImages.length > 0 && (
+                <TouchableOpacity
+                  style={styles.removeMainImageButton}
+                  onPress={() => removePreviewImage(selectedPreviewImageIndex)}
+                  disabled={isLoading}
+                >
+                  <MaterialIcons name="close" size={20} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Preview Image Thumbnails */}
+            {previewImages.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.thumbnailContainer}
+                contentContainerStyle={styles.thumbnailContent}
+              >
+                {previewImages.map((imageUri, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.thumbnailButton,
+                      selectedPreviewImageIndex === index &&
+                        styles.thumbnailButtonSelected,
+                    ]}
+                    onPress={() => setSelectedPreviewImageIndex(index)}
+                    disabled={isLoading}
+                  >
+                    <Image
+                      source={{ uri: imageUri }}
+                      style={styles.thumbnailImage}
+                    />
+                    <TouchableOpacity
+                      style={styles.removeThumbnailButton}
+                      onPress={() => removePreviewImage(index)}
+                      disabled={isLoading}
+                    >
+                      <MaterialIcons name="close" size={12} color="#fff" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            {/* Add More Preview Images Button */}
+            {previewImages.length > 0 && previewImages.length < 5 && (
+              <TouchableOpacity
+                style={[styles.addMoreButton, styles.previewAddMoreButton]}
+                onPress={pickPreviewImages}
+                disabled={isLoading}
+              >
+                <MaterialIcons name="add" size={20} color="#4CAF50" />
+                <Text style={[styles.addMoreText, styles.previewAddMoreText]}>Add More Preview Images</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -568,6 +726,10 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderStyle: "dashed",
   },
+  previewImageUploadButton: {
+    borderColor: "#4CAF50",
+    borderStyle: "dashed",
+  },
   uploadPlaceholder: {
     flex: 1,
     justifyContent: "center",
@@ -674,5 +836,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: "italic",
     textAlign: "center",
+  },
+  previewHelperText: {
+    color: "#666",
+    fontSize: 12,
+    marginBottom: 8,
+    fontStyle: "italic",
+  },
+  previewAddMoreButton: {
+    borderColor: "#4CAF50",
+  },
+  previewAddMoreText: {
+    color: "#4CAF50",
   },
 });

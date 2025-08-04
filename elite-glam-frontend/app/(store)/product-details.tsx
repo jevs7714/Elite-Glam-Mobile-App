@@ -175,6 +175,10 @@ const ProductDetails = () => {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Preview images modal state
+  const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+
   // State for 'From the same shop' products
   const [sameShopProducts, setSameShopProducts] = useState<Product[]>([]);
   const [loadingSameShop, setLoadingSameShop] = useState(false);
@@ -1042,6 +1046,40 @@ const ProductDetails = () => {
               </Text>
             </View>
 
+            {/* Preview Images Section */}
+            {product.previewImages && product.previewImages.length > 0 && (
+              <View style={styles.previewImagesContainer}>
+                <Text style={styles.previewImagesTitle}>Preview Images</Text>
+                <Text style={styles.previewImagesSubtitle}>
+                  See how it looks when worn
+                </Text>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.previewImagesScroll}
+                >
+                  {product.previewImages.map((imageUri, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.previewImageItem}
+                      onPress={() => {
+                        // Open modal with preview images
+                        setPreviewModalVisible(true);
+                        setCurrentPreviewIndex(index);
+                      }}
+                    >
+                      <Image
+                        source={{ uri: imageUri }}
+                        style={styles.previewImage}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             {/* Seller Info */}
             <View style={styles.sellerContainer}>
               <View style={styles.sellerAvatar}>
@@ -1147,11 +1185,186 @@ const ProductDetails = () => {
 
       {/* Rating Section */}
       {renderRatingSection()}
+
+      {/* Preview Images Modal */}
+      {previewModalVisible &&
+        product.previewImages &&
+        product.previewImages.length > 0 && (
+          <View style={styles.previewModal}>
+            <View style={styles.previewModalContent}>
+              <TouchableOpacity
+                style={styles.previewModalCloseButton}
+                onPress={() => setPreviewModalVisible(false)}
+              >
+                <MaterialIcons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+
+              <Image
+                source={{ uri: product.previewImages[currentPreviewIndex] }}
+                style={styles.previewModalImage}
+                resizeMode="contain"
+              />
+
+              <View style={styles.previewModalControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.previewModalButton,
+                    currentPreviewIndex === 0 &&
+                      styles.previewModalButtonDisabled,
+                  ]}
+                  onPress={() =>
+                    setCurrentPreviewIndex((prev) => Math.max(0, prev - 1))
+                  }
+                  disabled={currentPreviewIndex === 0}
+                >
+                  <MaterialIcons
+                    name="chevron-left"
+                    size={36}
+                    color={currentPreviewIndex === 0 ? "#666" : "#fff"}
+                  />
+                </TouchableOpacity>
+
+                <Text style={styles.previewModalCounter}>
+                  {currentPreviewIndex + 1} /{" "}
+                  {product.previewImages?.length || 0}
+                </Text>
+
+                <TouchableOpacity
+                  style={[
+                    styles.previewModalButton,
+                    currentPreviewIndex ===
+                      (product.previewImages?.length || 0) - 1 &&
+                      styles.previewModalButtonDisabled,
+                  ]}
+                  onPress={() =>
+                    setCurrentPreviewIndex((prev) =>
+                      Math.min(
+                        (product.previewImages?.length || 0) - 1,
+                        prev + 1
+                      )
+                    )
+                  }
+                  disabled={
+                    currentPreviewIndex ===
+                    (product.previewImages?.length || 0) - 1
+                  }
+                >
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={36}
+                    color={
+                      currentPreviewIndex ===
+                      (product.previewImages?.length || 0) - 1
+                        ? "#666"
+                        : "#fff"
+                    }
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Preview Images Styles
+  previewImagesContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    paddingTop: 16,
+    padding: 10,
+  },
+  previewImagesTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 4,
+    color: "#333",
+  },
+  previewImagesSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 12,
+  },
+  previewImagesScroll: {
+    flexDirection: "row",
+  },
+  previewImageItem: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  // Preview Modal Styles
+  previewModal: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  previewModalContent: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewModalCloseButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 1001,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewModalImage: {
+    width: width,
+    height: width,
+  },
+  previewModalControls: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 20,
+    position: "absolute",
+    bottom: 100,
+  },
+  previewModalButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  previewModalButtonDisabled: {
+    opacity: 0.5,
+  },
+  previewModalCounter: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
