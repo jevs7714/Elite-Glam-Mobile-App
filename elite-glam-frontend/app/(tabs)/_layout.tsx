@@ -10,7 +10,11 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import React, { useState, useCallback, useEffect } from "react";
 import { notificationsService } from "../../services/notifications.service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -73,7 +77,7 @@ const styles = StyleSheet.create({
 });
 
 interface UserData {
-  role?: "customer" | "shop_owner";
+  role?: "customer" | "shop_owner" | "admin";
 }
 
 const CustomHeaderTitle = () => {
@@ -192,10 +196,7 @@ export default function TabsLayout() {
   if (isLoading) {
     return (
       <SafeAreaProvider>
-        <SafeAreaView
-          style={styles.loadingContainer}
-          edges={["left", "right"]}
-        >
+        <SafeAreaView style={styles.loadingContainer} edges={["left", "right"]}>
           <ActivityIndicator size="large" color="#7E57C2" />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -203,6 +204,7 @@ export default function TabsLayout() {
   }
 
   const isShopOwner = userData?.role === "shop_owner";
+  const isAdmin = userData?.role === "admin";
 
   return (
     <SafeAreaProvider>
@@ -279,7 +281,7 @@ export default function TabsLayout() {
               tabBarIcon: ({ color, size }) => (
                 <MaterialIcons name="event" size={size} color={color} />
               ),
-              href: !isShopOwner ? "/booking-status" : null,
+              href: !isShopOwner && !isAdmin ? "/booking-status" : null,
             }}
           />
           <Tabs.Screen
@@ -292,6 +294,7 @@ export default function TabsLayout() {
               ),
               tabBarBadge:
                 notificationCount > 0 ? notificationCount : undefined,
+              href: isAdmin ? null : "/notifications",
             }}
           />
           <Tabs.Screen
