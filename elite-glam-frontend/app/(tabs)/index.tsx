@@ -22,6 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../../services/api";
 import FilterModal, { Filters } from "../components/FilterModal";
 import ShopOwnerHome from "../components/ShopOwnerHome";
+import AdminHome from "../components/AdminHome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Constants for category products
@@ -592,6 +593,11 @@ export default function HomeScreen() {
   // Once role is determined, show appropriate view
   if (userRole === "shop_owner") {
     return <ShopOwnerHome />;
+  }
+  
+  // Show admin dashboard for admin users
+  if (userRole === "admin") {
+    return <AdminHome />;
   }
 
   // For customers, check if products are loading (only show loading if we have no data at all)
